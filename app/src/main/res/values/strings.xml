@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">CPUConf</string>
+    <string name="hello_world">Rank your phone performance whenever you are dissatisfied</string>
+    <string name="iconized_alert1">Dissatisfied with your phone s performance?</string>
+    <string name="hello_world1">Hello world!</string>
+    <string name="action_settings">Settings</string>
+</resources>

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+
+
+
+
+    <Button android:id="@+id/firstLevel"
+        android:layout_width="90dp"
+        android:layout_height="100dp"
+        android:background="@drawable/normal"
+        android:layout_above="@+id/secondLevel"
+        android:layout_alignEnd="@+id/secondLevel">
+    </Button>
+
+    <Button
+        android:id="@+id/secondLevel"
+        android:layout_width="93dp"
+        android:layout_height="100dp"
+        android:background="@drawable/angry2"
+        android:layout_column="3"
+
+        android:layout_centerVertical="true"
+        android:layout_alignStart="@+id/thirdLevel">
+    </Button>
+
+    <Button
+        android:id="@+id/thirdLevel"
+        android:layout_width="90dp"
+        android:layout_height="100dp"
+        android:layout_column="3"
+        android:background="@drawable/angry"
+        android:layout_below="@+id/secondLevel"
+        android:layout_centerHorizontal="true">
+    </Button>
+
+
+
+
+</RelativeLayout>
