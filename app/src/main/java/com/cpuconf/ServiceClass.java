@@ -61,7 +61,34 @@ public class ServiceClass extends Service {
 
     private long lastTime = System.currentTimeMillis();
     private long lastFileSize = System.currentTimeMillis();
-    private static String[] featureList = {"cpu0", "cpu1", "cpu2", "cpu3" , "cpu4" , "cpu5" , "cpu6" , "cpu7" , "app1", "app2","app3","app4", "active_core", "active_freq", "user_rate"};
+    private static String[] featureList = {"cpuT", "cpu0", "cpu1", "cpu2", "cpu3" , "cpu4" , "cpu5" , "cpu6" , "cpu7" ,
+            "greenwall",
+            "youtube",
+            "videos",
+            "universalimageloader",
+            "calendar",
+            "chrome",
+            "deskclock",
+            "talk",
+            "photos",
+            "googlequicksearchbox",
+            "googlequicksearchbox:interactor",
+            "gms",
+            "nfs14_row",
+            "r3_na",
+            "GoogleCamera",
+            "maps",
+            "messaging",
+            "calculator",
+            "music",
+            "music",
+            "play.games",
+            "phone",
+            "trafficracer",
+            "systemui",
+            "googlequicksearchbox:search",
+            "active_core", "active_freq",
+            "user_rate"};
                                         // i better write here all applications. i can find them from /data/data
     public int active_core =0;
     public int active_freq=0;
@@ -87,6 +114,29 @@ public class ServiceClass extends Service {
 
 
         try {
+
+
+
+
+            Process process = Runtime.getRuntime().exec("su");
+            DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+
+
+            outputStream.writeBytes("setprop debug.gr.calcfps 1\n");
+            outputStream.writeBytes("setprop debug.gr.calcfps.period 3\n");
+            outputStream.writeBytes("stop\n");
+            outputStream.writeBytes("start\n");
+
+            outputStream.flush();
+           // outputStream.writeBytes("exit\n");
+
+            Log.d("", "it is gonna get logcat now");
+
+
+
+
+
+
             Logger.createLogFile(this);
            // Logger.createLogFileToUpload(this);
             mLogger.logEntry("Logger On");
@@ -433,9 +483,10 @@ public class ServiceClass extends Service {
 */
              //   UStats.getStats(ServiceClass.this);
              //   uStats.printCurrentUsageStatus(ServiceClass.this);
-                Log.d(TAG,"Before and after applicationss: " + System.currentTimeMillis());
-                applications.getApps();
+                Log.d(TAG, "Before and after applicationss: " + System.currentTimeMillis());
                 cpUtil.readStats();
+                applications.getApps();
+
                 mLogger.arffEntryLong(active_core);
                 mLogger.arffEntryLong(active_freq);
 
@@ -447,7 +498,7 @@ public class ServiceClass extends Service {
 
 
 
-                   mLogger.arffEntryNewInstance();
+                mLogger.arffEntryNewInstance();
 
 
                 if(System.currentTimeMillis() - lastFileSize > 360000) { // 1 hour time
@@ -517,7 +568,8 @@ public class ServiceClass extends Service {
 
                     // final Process process = Runtime.getRuntime().exec(new String[] { "su", "-c", "getevent -lt /dev/input/event0 > /sdcard/geteventFile" });
 
-                    Process process = Runtime.getRuntime().exec("su");
+                //    Process process = Runtime.getRuntime().exec("su");
+                    Process process = Runtime.getRuntime().exec("");
                     DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
 
                     if (i == 1 || i == 0) {
@@ -525,7 +577,7 @@ public class ServiceClass extends Service {
                         try {
                             outputStream.writeBytes("sh /sdcard/1.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it is gonna get getevent1");
 
@@ -539,7 +591,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/2.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it should be good");
 
@@ -553,7 +605,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/4.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it should be good");
 
@@ -568,7 +620,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/6.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                          //  outputStream.writeBytes("exit\n");
 
                             Log.d("", "it should be good");
 
@@ -583,7 +635,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/8.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                          //  outputStream.writeBytes("exit\n");
 
                             Log.d("", "it should be good");
 
@@ -600,7 +652,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/min.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it is min freq");
 
@@ -614,7 +666,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/mid.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it is mid freq");
 
@@ -628,7 +680,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/max.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it is max freq");
 
@@ -642,7 +694,7 @@ public class ServiceClass extends Service {
 
                             outputStream.writeBytes("sh /sdcard/std.bash\n");
                             outputStream.flush();
-                            outputStream.writeBytes("exit\n");
+                         //   outputStream.writeBytes("exit\n");
 
                             Log.d("", "it is std freq");
 

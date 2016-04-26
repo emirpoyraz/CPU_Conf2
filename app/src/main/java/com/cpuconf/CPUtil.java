@@ -26,9 +26,9 @@ public class CPUtil {
     final private DecimalFormat mPercentFmt = new DecimalFormat("#0.0");
 
 
-    private long mUser0,mUser1,mUser2,mUser3,mUser4,mUser5,mUser6,mUser7;
-    private long mSystem0,mSystem1,mSystem2,mSystem3,mSystem4,mSystem5,mSystem6,mSystem7;
-    private long mTotal0,mTotal1,mTotal2,mTotal3,mTotal4,mTotal5,mTotal6,mTotal7;
+    private long mUser8, mUser0,mUser1,mUser2,mUser3,mUser4,mUser5,mUser6,mUser7;
+    private long mSystem8,mSystem0,mSystem1,mSystem2,mSystem3,mSystem4,mSystem5,mSystem6,mSystem7;
+    private long mTotal8,mTotal0,mTotal1,mTotal2,mTotal3,mTotal4,mTotal5,mTotal6,mTotal7;
 
 
     private double user_sys_perc2;
@@ -41,7 +41,7 @@ public class CPUtil {
 
 
     public CPUtil() {
-        readStats();
+      //  readStats();
     }
 
 
@@ -69,7 +69,7 @@ public class CPUtil {
             while ((line = in.readLine()) != null ) {
                 String[] firstLine = line.split("\\s+");
                 if (firstLine[0].equalsIgnoreCase("cpu")) {
-                    updateStats(line.trim().split("[ ]+"), 00);
+                    updateStats(line.trim().split("[ ]+"), 8);
                    // return true;
                 }
                  else if (firstLine[0].equalsIgnoreCase("cpu0")) {
@@ -127,7 +127,39 @@ public class CPUtil {
         long total = user + system + Long.parseLong(segs[4]) + Long.parseLong(segs[5]);
 
 
-        if (core == 0) {
+        if (core == 8) {
+            if (mTotal8 != 0 || total >= mTotal8) {
+                long duser = user - mUser8;
+                long dsystem = system - mSystem8;
+                long dtotal = total - mTotal8;
+                broadcast(duser, dsystem, dtotal);
+                double user_sys_perc = (double) (duser + dsystem) * 100.0 / dtotal;
+                double user_perc = (double) (duser) * 100.0 / dtotal;
+                double sys_perc = (double) (dsystem) * 100.0 / dtotal;
+
+                if (mDisplay != null) {
+                    mDisplay.get(0).setText(mPercentFmt.format(user_sys_perc) + "% ("
+                            + mPercentFmt.format(user_perc) + "/"
+                            + mPercentFmt.format(sys_perc) + ")");
+                }
+
+                Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+               // if(dtotal == 0 ){
+              //      user_sys_perc = 0.0;
+              //  }
+                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+            }
+
+            mUser8 = user;
+            mSystem8 = system;
+            mTotal8 = total;
+
+        }
+
+
+
+        else if (core == 0) {
             if (mTotal0 != 0 || total >= mTotal0) {
                 long duser = user - mUser0;
                 long dsystem = system - mSystem0;
@@ -175,10 +207,10 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0.0
-                        ){
-                    user_sys_perc = 0.0;
-                }
+
+               // if(dtotal == 0.0){
+               //     user_sys_perc = 0.0;
+              //  }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
 

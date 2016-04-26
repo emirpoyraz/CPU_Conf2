@@ -158,26 +158,6 @@ public class Applications {
                 }
             }
 
-/*
-            for (int k = 0; k < 25; k++) {
-                for (int p = 0; p < 15; p++) {
-                    if (temp_apps[p] != null && !temp_apps[p].equalsIgnoreCase("")) {
-
-                        String[] lineTempApps = temp_apps[p].split("\\s+");
-                        if (lineTempApps[0].equalsIgnoreCase(appList.get(k))) {
-
-                        }
-                        else{
-
-                        }
-
-
-                        }
-
-                    }
-                }
-*/
-
 
 
 
@@ -203,12 +183,9 @@ public class Applications {
             } else {
                 String line;
                 Log.d(TAG, "In here - 3 ##########: " + apps_old[0]);
-                //   int i = 0;
-                //   int j = 0;
-                //  while (i < 35) {
+
                 for (int i = 0; i < 25; i++) {
                     for (int j = 0; j < 25; j++) {
-                        // while (j < 35) {
                       //  Log.d(TAG, "In here - 4 ##########: " + apps_old[j]);
                         if (apps[i] != null && apps_old[j] != null && !apps[i].equalsIgnoreCase("") && !apps_old[j].equalsIgnoreCase("")) {
                         //    Log.d(TAG, "i and j: " + i + " " + j);
