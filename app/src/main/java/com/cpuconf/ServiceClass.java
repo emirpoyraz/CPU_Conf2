@@ -53,6 +53,7 @@ public class ServiceClass extends Service {
     private Applications applications;
     private CPUtil cpUtil;
 
+    public FPS fps;
     private Random random;
 
     private static long cpu_conf_time_interval = 30000; // 30 sec to change cpu configuration
@@ -102,6 +103,8 @@ public class ServiceClass extends Service {
 
             //mStatsProc.reset();
          //   uStats = new UStats();
+
+            fps = new FPS();
             applications = new Applications();
             cpUtil = new CPUtil();
 
@@ -656,7 +659,7 @@ public class ServiceClass extends Service {
                     }
 
 
-
+                fps.get_FPS_stats();
                 Log.d(TAG,"Before and after bef: " + System.currentTimeMillis());
                 mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval);
                 Log.d(TAG, "Before and after aft: " + System.currentTimeMillis());
