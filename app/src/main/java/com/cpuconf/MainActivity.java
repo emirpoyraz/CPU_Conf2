@@ -6,10 +6,13 @@ import android.support.v4.app.NotificationCompat;
 import android.support.v4.app.NotificationManagerCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
+
+import java.io.DataOutputStream;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -84,8 +87,26 @@ public class MainActivity extends AppCompatActivity {
         private View.OnClickListener startServiceListener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Intent intent = new Intent(MainActivity.this, ServiceClass.class);
-                MainActivity.this.startService(intent);
+                try {
+                Process process = Runtime.getRuntime().exec("su");
+                DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+
+
+                outputStream.writeBytes("setprop debug.gr.calcfps 1\n");
+                outputStream.writeBytes("setprop debug.gr.calcfps.period 1\n");
+                outputStream.writeBytes("stop\n");
+                outputStream.writeBytes("start\n");
+
+                outputStream.flush();
+                // outputStream.writeBytes("exit\n");
+
+                Log.d("", "it is gonna get logcat now");
+                } catch (Throwable t) {
+                    Log.d(" ","Error Occured in ServiceClass: " + t);
+                }
+
+               // Intent intent = new Intent(MainActivity.this, ServiceClass.class);
+               // MainActivity.this.startService(intent);
             }
         };
 

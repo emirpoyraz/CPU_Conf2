@@ -24,6 +24,7 @@ import android.support.v4.app.NotificationManagerCompat;
 import android.util.Log;
 import android.widget.Toast;
 
+import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -53,7 +54,7 @@ public class ServiceClass extends Service {
     private Applications applications;
     private CPUtil cpUtil;
 
-    public FPS fps;
+    private FPS fps;
     private Random random;
 
     private static long cpu_conf_time_interval = 30000; // 30 sec to change cpu configuration
@@ -115,25 +116,6 @@ public class ServiceClass extends Service {
 
 
         try {
-
-
-
-
-            Process process = Runtime.getRuntime().exec("su");
-            DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
-
-
-            outputStream.writeBytes("setprop debug.gr.calcfps 1\n");
-            outputStream.writeBytes("setprop debug.gr.calcfps.period 3\n");
-            outputStream.writeBytes("stop\n");
-            outputStream.writeBytes("start\n");
-
-            outputStream.flush();
-           // outputStream.writeBytes("exit\n");
-
-            Log.d("", "it is gonna get logcat now");
-
-
 
 
 
@@ -566,16 +548,41 @@ public class ServiceClass extends Service {
 
                     Log.d(TAG, "Active core number and frequecy: " + i + " " + j);
 
+                   // fps.get_FPS_stats();
+                  //  Log.d(TAG, "It calls fps object");
+
                     mLogger.logEntry("Active core number and frequecy: " + i + " " + j);
 
 
                     // final Process process = Runtime.getRuntime().exec(new String[] { "su", "-c", "getevent -lt /dev/input/event0 > /sdcard/geteventFile" });
 
                 //    Process process = Runtime.getRuntime().exec("su");
-                    Process process = Runtime.getRuntime().exec("");
+                    Process process = Runtime.getRuntime().exec("su");
                     DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
 
-                    if (i == 1 || i == 0) {
+
+                Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
+
+                InputStreamReader reader = new InputStreamReader(processFPS.getInputStream());
+
+/*
+                    Log.d(TAG,"fpsss inputStream command0");
+                    BufferedReader bufferedReader = new BufferedReader(reader);
+                    Log.d(TAG,"fpsss bufferedReader command0 " + reader.read());
+
+
+
+
+                    String line = "";
+                    while ((line = bufferedReader.readLine()) != null) {
+                        //Log.d(TAG,"fpsss inside while loop10: " + line);
+                        String fps = line.substring(line.lastIndexOf(':') + 1);
+                        Log.d(TAG,"fpsss inside while loop20: " + fps);
+                       // fps_log.add(Double.parseDouble(fps));
+                    }
+*/
+
+                if (i == 1 || i == 0) {
 
                         try {
                             outputStream.writeBytes("sh /sdcard/1.bash\n");
@@ -717,7 +724,8 @@ public class ServiceClass extends Service {
                 Log.d(TAG, "Before and after aft: " + System.currentTimeMillis());
 
                 }catch(Exception e){
-                    Log.i(TAG, "Error occured " + e);
+                    Log.i(TAG, "Error occured- 11 " + e);
+
 
                 }
             }
