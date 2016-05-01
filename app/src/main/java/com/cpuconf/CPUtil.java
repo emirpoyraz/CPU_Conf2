@@ -51,7 +51,7 @@ public class CPUtil {
     private static final String FREQ_KEY_SCALE = "CPU_Freq_Scale";
 
 
-
+//TODO: Threads should be calculated!!!
     public boolean readStats() {
         FileReader fstream;
 
@@ -177,8 +177,8 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0 ){
-                    user_sys_perc = 0.0;
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
                 }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
@@ -208,9 +208,9 @@ public class CPUtil {
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
 
-               // if(dtotal == 0.0){
-               //     user_sys_perc = 0.0;
-              //  }
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
+                }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
 
@@ -238,8 +238,8 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0){
-                    user_sys_perc = 0;
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
                 }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
@@ -268,8 +268,8 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0){
-                    user_sys_perc = 0;
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
                 }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
@@ -298,8 +298,8 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0){
-                    user_sys_perc = 0;
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
                 }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
@@ -358,8 +358,8 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0){
-                    user_sys_perc = 0;
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
                 }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
 
@@ -389,8 +389,8 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0){
-                    user_sys_perc = 0;
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
                 }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
 

@@ -88,19 +88,19 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 try {
-                Process process = Runtime.getRuntime().exec("su");
-                DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+                    Process process = Runtime.getRuntime().exec("su");
+                    DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
 
 
-                outputStream.writeBytes("setprop debug.gr.calcfps 1\n");
-                outputStream.writeBytes("setprop debug.gr.calcfps.period 1\n");
-                outputStream.writeBytes("stop\n");
-                outputStream.writeBytes("start\n");
+                    outputStream.writeBytes("setprop debug.gr.calcfps 1\n");
+                    outputStream.writeBytes("setprop debug.gr.calcfps.period 1\n");
+                    outputStream.writeBytes("stop\n");
+                    outputStream.writeBytes("start\n");
 
-                outputStream.flush();
-                // outputStream.writeBytes("exit\n");
+                    outputStream.flush();
+                    // outputStream.writeBytes("exit\n");
 
-                Log.d("", "it is gonna get logcat now");
+                    Log.d("", "it is gonna get logcat now");
                 } catch (Throwable t) {
                     Log.d(" ","Error Occured in ServiceClass: " + t);
                 }

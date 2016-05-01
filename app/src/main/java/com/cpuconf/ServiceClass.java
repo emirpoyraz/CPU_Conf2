@@ -26,6 +26,8 @@ import android.widget.Toast;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.DateFormat;
@@ -36,6 +38,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.TimeZone;
+import java.util.Vector;
 
 /**
  * Created by emir on 3/23/16.
@@ -55,6 +58,12 @@ public class ServiceClass extends Service {
     private CPUtil cpUtil;
 
     private FPS fps;
+    final private static String FPS_PATH = "/sdcard/file.log";
+
+    private static final byte[] FPS_DATA = FileRepeatReader.generateReadfileCommand(FPS_PATH);
+    private static Vector<Double> fps_log = new Vector<Double>();
+
+
     private Random random;
 
     private static long cpu_conf_time_interval = 30000; // 30 sec to change cpu configuration
@@ -89,6 +98,7 @@ public class ServiceClass extends Service {
             "trafficracer",
             "systemui",
             "googlequicksearchbox:search",
+            "mean_FPS", "stdev_FPS", "mean_frametime", "stdev_frametime", "max_frametime",
             "active_core", "active_freq",
             "user_rate"};
                                         // i better write here all applications. i can find them from /data/data
@@ -130,6 +140,25 @@ public class ServiceClass extends Service {
 
             Logger.InitiateArffFile(featureList);
 
+            int notificationId = 001;
+            Intent viewIntent = new Intent(this, Dissatisfaction.class);
+            PendingIntent viewPendingIntent =
+                    PendingIntent.getActivity(this, 0, viewIntent, 0);
+
+
+            NotificationCompat.Builder notificationBuilder =
+                    new NotificationCompat.Builder(this)
+                            .setSmallIcon(R.drawable.normal)
+                            .setContentTitle(getText(R.string.iconized_alert1))
+                            .setContentText("Push to rank")
+                            .setContentIntent(viewPendingIntent)
+                            .setOngoing(true);
+
+
+            NotificationManagerCompat notificationManager =
+                    NotificationManagerCompat.from(this);
+
+            notificationManager.notify(notificationId, notificationBuilder.build());
 
 
 
@@ -469,13 +498,34 @@ public class ServiceClass extends Service {
              //   UStats.getStats(ServiceClass.this);
              //   uStats.printCurrentUsageStatus(ServiceClass.this);
                 Log.d(TAG, "Before and after applicationss: " + System.currentTimeMillis());
-                cpUtil.readStats();
+
+                boolean cpu_util, apps, fpss, threads;
+                cpu_util = apps = fpss = threads = false;
+
+                //maybe else backup plans here...
+
+                if(cpUtil.readStats()) cpu_util = true;
                 applications.getApps();
+
+
+                if(fps.get_logs(1)) fps.get_FPS_stats();
+
+              //  if(fps.get_FPS_stats()) fpss = true;
+
+
+
+
+
+
+              //  get_FPS_stats();
+
 
                 mLogger.arffEntryLong(active_core);
                 mLogger.arffEntryLong(active_freq);
 
+                mLogger.arffEntryLong(DataHolder.getInstance().getUserSatisfaction());
 
+                DataHolder.getInstance().setUserSatisfaction(0);
 
                 // fps
 
@@ -546,9 +596,11 @@ public class ServiceClass extends Service {
                     active_freq = j;
 
 
-                    Log.d(TAG, "Active core number and frequecy: " + i + " " + j);
+                Log.d(TAG, "Active core number and frequecy: " + i + " " + j);
 
-                   // fps.get_FPS_stats();
+               // fps.get_logs(0);
+
+
                   //  Log.d(TAG, "It calls fps object");
 
                     mLogger.logEntry("Active core number and frequecy: " + i + " " + j);
@@ -561,9 +613,19 @@ public class ServiceClass extends Service {
                     DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
 
 
-                Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
 
-                InputStreamReader reader = new InputStreamReader(processFPS.getInputStream());
+
+                // BufferedReader br = new BufferedReader(reader)
+
+
+                // while(reader.ready()){
+
+
+
+
+               // Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
+
+              //  InputStreamReader reader = new InputStreamReader(processFPS.getInputStream());
 
 /*
                     Log.d(TAG,"fpsss inputStream command0");
@@ -586,6 +648,7 @@ public class ServiceClass extends Service {
 
                         try {
                             outputStream.writeBytes("sh /sdcard/1.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -600,6 +663,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/2.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -614,6 +678,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/4.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -629,8 +694,9 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/6.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
-                          //  outputStream.writeBytes("exit\n");
+                          //
 
                             Log.d("", "it should be good");
 
@@ -644,6 +710,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/8.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                           //  outputStream.writeBytes("exit\n");
 
@@ -661,6 +728,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/min.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -675,6 +743,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -689,6 +758,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/max.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -703,6 +773,7 @@ public class ServiceClass extends Service {
                         try {
 
                             outputStream.writeBytes("sh /sdcard/std.bash\n");
+                            outputStream.writeBytes("exit\n");
                             outputStream.flush();
                          //   outputStream.writeBytes("exit\n");
 
@@ -717,8 +788,93 @@ public class ServiceClass extends Service {
                         mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval);
                     }
 
+               // fps.get_logs(1);
+/*
+                Process processFPS = Runtime.getRuntime().exec("su");
 
-                fps.get_FPS_stats();
+                DataOutputStream outputStream2 = new DataOutputStream(processFPS.getOutputStream());
+                outputStream2.writeBytes("logcat | grep FPS\n");
+              //  outputStream2.flush();
+                Log.d(TAG, "FPS inputStreamReader it should be good now1");
+
+                //  Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
+
+                InputStreamReader reader = new InputStreamReader(processFPS.getInputStream());
+
+                Log.d(TAG, "FPS inputStreamReader: " + reader.read() + " " + reader.ready());
+
+                BufferedReader bufferedReader = new BufferedReader(reader);
+
+                if(reader.ready()){
+                    String line = bufferedReader.readLine();
+                    bufferedReader.readLine();
+                    String line1 = bufferedReader.readLine();
+                    String line2 = bufferedReader.readLine();
+
+
+                    Log.d(TAG, "BufferedReader lines: \n" + line + "\n " + line1 + "\n " + line2);
+                }
+
+              //  processFPS = Runtime.getRuntime().exec("^C");
+
+
+                outputStream2.writeBytes("^C\n");
+                outputStream2.flush();
+                Log.d(TAG, "FPS inputStreamReader it should be good now");
+
+                //  Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
+
+
+                    String line = bufferedReader.readLine();
+                    bufferedReader.readLine();
+                    String line1 = bufferedReader.readLine();
+                    String line2 = bufferedReader.readLine();
+
+
+                    Log.d(TAG, "BufferedReader lines2: \n" + line + "\n " + line1 + "\n " + line2);
+
+*/
+
+/*
+                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(processFPS.getInputStream()));
+                Log.d(TAG, "BufferedReader is started again");
+                String line = "";
+                long lastCall = System.currentTimeMillis();
+                Log.d(TAG, "BufferedReader is started again11");
+                //  while ((line = bufferedReader.readLine()) != null && line.contains("frames")) {
+
+                //  if(System.currentTimeMillis() - lastCall >10000);
+
+                int counter =0;
+                while(counter<5) {
+
+                    Log.d(TAG, "BufferedReader is now: " + bufferedReader.readLine());
+                    if ((bufferedReader.readLine()) != null) {
+                        line = bufferedReader.readLine();
+                        Log.d(TAG, "fpsss inside loop1: " + line);
+                        String fps = line.substring(line.lastIndexOf(':') + 1);
+                        Log.d(TAG, "fpsss inside loop2: " + fps);
+                        fps_log.add(Double.parseDouble(fps));
+
+                    }
+                    counter++;
+                }
+
+                bufferedReader.close();
+
+                Log.d(TAG, "BufferedReader is closed");
+
+                Log.d(TAG, "BufferedReader is closed212");
+
+
+*/
+
+              //  fps.get_logs(0);
+               // fps.get_logs(1);
+
+                fps.get_FPS_initiate();
+                fps.get_logs(1);
+
                 Log.d(TAG,"Before and after bef: " + System.currentTimeMillis());
                 mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval);
                 Log.d(TAG, "Before and after aft: " + System.currentTimeMillis());
@@ -732,6 +888,143 @@ public class ServiceClass extends Service {
 
        // }
     };
+
+
+    public void get_FPS_initiate(){
+
+        File file = new File(FPS_PATH);
+        file.delete();
+
+
+        try {
+            Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
+            InputStreamReader reader = new InputStreamReader(processFPS.getInputStream());
+        }catch (Exception e){
+
+        }
+    }
+
+
+/*
+    public void get_FPS_logs() {
+
+
+        FileRepeatReader mRepeatReader = ServiceClass.getRepeatReader();
+        if (mRepeatReader == null) {
+            Log.e(TAG, "FPS Frequency file could not be created111");
+            //return false;
+        } else {
+            boolean ret = false;
+            try {
+                mRepeatReader.lock();
+                mRepeatReader.refresh(FPS_DATA);
+
+                FileRepeatReader.SpaceSeparatedLine ssLine;
+                String key, key1;
+                boolean found = false;
+                int freq;
+
+                while (mRepeatReader.hasNextLine()) {
+                    ssLine = mRepeatReader.getSSLine();
+                    key = ssLine.getToken(11); // either one of them should be frames
+                    key1 = ssLine.getToken(12);
+                    //if (DBG) {Log.i(TAG, "Key: " + key);}
+                    Log.d(TAG, "FPS data path: " + key1 + " " + key + " " + mRepeatReader.getLine());
+                    fps_log.add(Double.valueOf(key1));
+                    // pre-LogListener:
+                    //JamLoggerService.getLogger().logIntEntry(Logger.EntryType.CPU_FREQ, freq);
+
+                }
+
+                if (!found) {
+                    // ServiceClass.getLogger().errorOccurred(new ParseException("Could not parse CPU Frequency"));
+                }
+                mRepeatReader.unlock();
+                ret = found;
+            } catch (FileNotFoundException e) {
+
+                Log.e(TAG, "CPU Frequency file not found");
+                e.printStackTrace();
+
+                ret = false;
+            } catch (IOException e) {
+
+                Log.e(TAG, "CPU Frequency file: IOException");
+                e.printStackTrace();
+
+                ret = false;
+            } catch (NumberFormatException e) {
+
+                Log.e(TAG, "CPU Frequency file: Could not format number");
+                e.printStackTrace();
+
+                ret = false;
+            } catch (InterruptedException e) {
+
+                Log.e(TAG, "CPU Frequency file: Interrupted during lock");
+                e.printStackTrace();
+
+                ret = false;
+            } finally {
+                mRepeatReader.unlock();
+            }
+
+        }
+    }
+
+*/
+
+    public void get_FPS_stats() {
+
+        try {
+            Double FPS_sum, frametime_sum, mean_FPS, mean_frametime, stdev_FPS, stdev_frametime, max_frametime, temp_FPS;
+            FPS_sum = frametime_sum = mean_FPS = mean_frametime = stdev_FPS = stdev_frametime = temp_FPS = 0.0;
+            max_frametime = -1.0;
+            int count = 0;
+
+            Log.d(TAG, "fps log size is: " + fps_log.size());
+
+            for (int i = 0; i < fps_log.size(); i++) {
+                temp_FPS = fps_log.get(i);
+                FPS_sum += temp_FPS;
+                frametime_sum += 1 / temp_FPS;
+
+                if (1 / temp_FPS > max_frametime) {
+                    max_frametime = temp_FPS;
+                }
+
+                count++;
+            }
+
+
+            mean_FPS = FPS_sum / count;
+            mean_frametime = frametime_sum / count;
+
+            Log.d(TAG, "mean fps is: " + mean_FPS);
+
+            for (int j = 0; j < fps_log.size(); j++) {
+                temp_FPS = fps_log.get(j);
+
+                stdev_FPS += (temp_FPS - mean_FPS) * (temp_FPS - mean_FPS);
+                stdev_frametime += (1 / temp_FPS - mean_frametime) * (1 / temp_FPS - mean_frametime);
+            }
+
+            stdev_FPS = Math.sqrt(stdev_FPS / count);
+            stdev_frametime = Math.sqrt(stdev_frametime / count);
+
+            Log.d("FPSInfo: ", "" + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);
+
+            fps_log.clear();
+
+            //  get_logs();
+        } catch (Exception e) {
+
+        }
+    }
+
+
+
+
 
 
 

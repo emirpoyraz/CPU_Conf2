@@ -105,6 +105,8 @@ public class Applications {
         else return false;
     }
 
+
+
     public void getApps(){
         int totalApps=0;
         long totalTimeInUser =0;
@@ -210,7 +212,10 @@ public class Applications {
 
                                 Log.d(TAG, "App: " + appName + " " + deltaUserTime);
 
+                                if(deltaUserTime<=0) deltaUserTime = 0;
+
                                 ServiceClass.getLogger().logEntry("App: " + appName + " " + deltaUserTime);
+
                                 ServiceClass.getLogger().arffEntryLong(deltaUserTime);
 
 
@@ -274,7 +279,11 @@ public class Applications {
 
             Log.d(TAG, "ERROR: " + stackTrace);
 
+          //  return false;
+
         }
+
+      //  return true;
     }
 
 

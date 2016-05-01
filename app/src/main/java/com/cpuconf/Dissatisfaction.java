@@ -85,8 +85,8 @@ public class Dissatisfaction extends Activity {
         public void onClick(View v) {
             try {
                 ServiceClass.getLogger().logEntry("User_satisfaction: " + 1);
-                Toast.makeText(Dissatisfaction.this,  "Thank you! (1)", Toast.LENGTH_SHORT).show();
-
+                Toast.makeText(Dissatisfaction.this, "Thank you! (1)", Toast.LENGTH_SHORT).show();
+                DataHolder.getInstance().setUserSatisfaction(1);
             }catch (Exception e){}
 
         }
@@ -98,8 +98,8 @@ public class Dissatisfaction extends Activity {
         public void onClick(View v) {   // angry
             try {
            ServiceClass.getLogger().logEntry("User_satisfaction: " + 2);
-           Toast.makeText(Dissatisfaction.this,  "Thank you! (2)", Toast.LENGTH_SHORT).show();
-
+           Toast.makeText(Dissatisfaction.this, "Thank you! (2)", Toast.LENGTH_SHORT).show();
+                DataHolder.getInstance().setUserSatisfaction(2);
 
             }catch (Exception e){}
 
@@ -112,7 +112,9 @@ public class Dissatisfaction extends Activity {
         public void onClick(View v) {   // so angry
             try {
                 ServiceClass.getLogger().logEntry("User_satisfaction: " + 3);
-                Toast.makeText(Dissatisfaction.this,  "Thank you! (3)", Toast.LENGTH_SHORT).show();
+                Toast.makeText(Dissatisfaction.this, "Thank you! (3)", Toast.LENGTH_SHORT).show();
+                DataHolder.getInstance().setUserSatisfaction(3);
+
 
 
             }catch (Exception e){}

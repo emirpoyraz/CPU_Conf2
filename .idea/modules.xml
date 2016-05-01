@@ -3,7 +3,6 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/CPUConf.iml" filepath="$PROJECT_DIR$/CPUConf.iml" />
-      <module fileurl="file://$PROJECT_DIR$/CPU_Conf2.iml" filepath="$PROJECT_DIR$/CPU_Conf2.iml" />
       <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
     </modules>
   </component>
