@@ -19,10 +19,11 @@ public class FPS {
     private static Vector<Double> fps_log = new Vector<Double>();
 
 
- //   private Process process;
- //   private DataOutputStream outputStream = new DataOutputStream(process.getOutputStream()) ;
+        private Process process ;
 
- //   private BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));;
+        private DataOutputStream outputStream ;
+
+    private BufferedReader bufferedReader;
 
     private boolean firstOne = true;
 
@@ -31,29 +32,47 @@ public class FPS {
 
     private boolean bufferedReaderNew = true;
 
+    final private static Object mLogLock = new Object();
+
 
 
 
 
     public FPS() {
-            get_logs(1);
+         //   get_logs(1);
         try {
-        //  final Process process = Runtime.getRuntime().exec("\n");
-        //  final DataOutputStream outputStream = new DataOutputStream(process.getOutputStream()) ;
+
+   /*
+          final  Process process = Runtime.getRuntime().exec("su");
+          final DataOutputStream outputStream = new DataOutputStream(process.getOutputStream()) ;
           //  outputStream = process.getOutputStream();
             //  outputStream = DataOutputStream(process.getOutputStream());
          //   outputStream.writeBytes("^C\n");
-         //   outputStream.writeBytes("logcat | grep FPS\n");
+            outputStream.writeBytes("logcat | grep qdutils\n");
          //   outputStream.close();
-           // bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+           final BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            String line;
+            while ((line = bufferedReader.readLine()) != null && line.contains("FPS") && !line.contains("BufferedReader")) {
+
+                Log.d(TAG, "BufferedReader is now: " + line);
+
+                //7 line = bufferedReader.readLine();
+                Log.d(TAG, " inside loop1: " + line);
+                String fps = line.substring(line.lastIndexOf(':') + 1);
+                Log.d(TAG, " inside loop2: " + fps);
+                fps_log.add(Double.parseDouble(fps));
+              //  counter++;
+
+            }
+*/
 
         } catch (Exception e) {
 
         }
     }
-    public boolean get_logs(int a) {
+    public void get_logs(int a) {
 
-
+        synchronized (mLogLock) {
             try {
 
 
@@ -71,25 +90,54 @@ public class FPS {
                     firstOne = false;
                 }
 */
-                Process process = Runtime.getRuntime().exec("\n");
+                process = Runtime.getRuntime().exec("su");
+                outputStream = new DataOutputStream(process.getOutputStream());
+                //  outputStream = process.getOutputStream();
+                //  outputStream = DataOutputStream(process.getOutputStream());
+                //   outputStream.writeBytes("^C\n");
+                outputStream.writeBytes("logcat | grep qdutils\n");
+                //   outputStream.close();
 
-                DataOutputStream  outputStream = new DataOutputStream(process.getOutputStream());
-
-               outputStream.writeBytes("logcat | grep FPS\n");
-              //  outputStream.writeBytes("^C\n");
-                outputStream.flush();
-                outputStream.close();
-                Log.d(TAG, "BufferedReader is started againAfterFlush/ cccccccc                                d");
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));;
                 Log.d(TAG, "BufferedReader is started again");
-                String line = "";
-                Log.d(TAG, "BufferedReader is started again11");
-                int counter =0;
-                while ((line = bufferedReader.readLine()) != null && line.contains("FPS") && counter < 10) {
 
-                    Log.d(TAG, "BufferedReader is now: " + bufferedReader.readLine());
+                bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));
+                String line;
+                while ((line = bufferedReader.readLine()) != null && line.contains("FPS") && !line.contains("BufferedReader")) {
 
-                    line = bufferedReader.readLine();
+                    Log.d(TAG, "BufferedReader is now: " + line);
+
+                    //7 line = bufferedReader.readLine();
+                    Log.d(TAG, " inside loop1: " + line);
+                    String fps = line.substring(line.lastIndexOf(':') + 1);
+                    Log.d(TAG, " inside loop2: " + fps);
+                    fps_log.add(Double.parseDouble(fps));
+                    //  counter++;
+                }
+
+                Log.d(TAG, "BufferedReader is started againAfterLogcat");
+                //  outputStream.writeBytes("^C\n");
+                //  outputStream.flush();
+                //  outputStream.close();
+                //   Log.d(TAG, "BufferedReader is started againAfterFlush");
+                //    BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(process.getInputStream()));;
+
+                //    Log.d(TAG, "BufferedReader is started again11");
+                //     Log.d(TAG, "BufferedReader line is: " + bufferedReader.readLine());
+                int counter = 0;
+
+                // outputStream.writeBytes("^C\n");
+                //   outputStream.flush();
+                // outputStream.close();
+                //   process.destroy();
+                //   bufferedReader.close();
+
+                //   Log.d(TAG, "BufferedReader line is12: " + bufferedReader.readLine());
+/*
+                while ((line = bufferedReader.readLine()) != null && line.contains("FPS") && !line.contains("BufferedReader")) {
+
+                    Log.d(TAG, "BufferedReader is now: " + line);
+
+                   //7 line = bufferedReader.readLine();
                     Log.d(TAG, " inside loop1: " + line);
                     String fps = line.substring(line.lastIndexOf(':') + 1);
                     Log.d(TAG, " inside loop2: " + fps);
@@ -98,12 +146,21 @@ public class FPS {
 
                 }
 
-                outputStream.writeBytes("^C\n");
-                outputStream.flush();
-                outputStream.close();
+*/
+
+                //   outputStream.writeBytes("^C\n");
+                //   outputStream.flush();
+                //   outputStream.close();
+                //   process.destroy();
 
                 Log.d(TAG, "BufferedReader is closed212");
-                bufferedReader.close();
+                //  bufferedReader.close();
+
+                outputStream.writeBytes("^C\n");
+             //   outputStream.writeBytes("exit\n");
+                outputStream.flush();
+                outputStream.close();
+                process.destroy();
 
                 Log.d(TAG, "BufferedReader is closed");
 
@@ -115,7 +172,7 @@ public class FPS {
 
 
             } catch (Exception e) {
-                return false;
+                // return false;
             }
 
 
@@ -156,9 +213,10 @@ public class FPS {
 */
 
             } catch (Exception e) {
-                return false;
+                //  return false;
             }
-    return true;
+        }
+    //return true;
     }
 
 
@@ -166,10 +224,15 @@ public class FPS {
 
     public boolean get_FPS_initiate() {
         boolean initiated = false;
-        try {
+        synchronized (mLogLock) {
+            try {
+              //  outputStream.writeBytes("^C\n");
+             //   outputStream.writeBytes("exit\n");
+             //   outputStream.flush();
+             //   outputStream.close();
+             //   process.destroy();
 
-
-            fps_log.clear();
+                fps_log.clear();
 
 
 /*
@@ -200,7 +263,9 @@ public class FPS {
 
             initiated = true;
 */
-        }catch (Exception e) {
+
+            } catch (Exception e) {
+            }
         }
 
     return initiated;
@@ -276,7 +341,7 @@ public class FPS {
     }
 
 */
-    public boolean get_FPS_stats() {
+    public void get_FPS_stats(int writeEn) {
 
 
 
@@ -332,8 +397,9 @@ public class FPS {
         }
 
 
-*/
 
+
+*/
 
             Double FPS_sum, frametime_sum, mean_FPS, mean_frametime, stdev_FPS, stdev_frametime, max_frametime, temp_FPS;
             FPS_sum = frametime_sum = mean_FPS = mean_frametime = stdev_FPS = stdev_frametime = temp_FPS = 0.0;
@@ -372,27 +438,29 @@ public class FPS {
 
             Log.d("framePerSecInfo: ", "" + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);
 
-            if(mean_FPS<=0 || mean_FPS == null) mean_FPS = mean_FPS_old;
-            if(stdev_FPS<=0 || stdev_FPS == null) stdev_FPS = stdev_FPS_old;
-            if(mean_frametime<=0 || mean_frametime == null) mean_frametime = mean_frametime_old;
-            if(stdev_frametime<=0 || stdev_frametime == null) stdev_frametime = stdev_frametime_old;
-            if(max_frametime<=0 || max_frametime == null) max_frametime = max_frametime_old;
+      //      if(mean_FPS<=0 || mean_FPS == null) mean_FPS = mean_FPS_old;
+      //      if(stdev_FPS<=0 || stdev_FPS == null) stdev_FPS = stdev_FPS_old;
+      //      if(mean_frametime<=0 || mean_frametime == null) mean_frametime = mean_frametime_old;
+      //      if(stdev_frametime<=0 || stdev_frametime == null) stdev_frametime = stdev_frametime_old;
+      //      if(max_frametime<=0 || max_frametime == null) max_frametime = max_frametime_old;
 
             ServiceClass.getLogger().logEntry("framePerSecInfo: " + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);;
 
-
+        if (writeEn == 1) {
             ServiceClass.getLogger().arffEntryDouble(mean_FPS);
             ServiceClass.getLogger().arffEntryDouble(stdev_FPS);
             ServiceClass.getLogger().arffEntryDouble(mean_frametime);
             ServiceClass.getLogger().arffEntryDouble(stdev_frametime);
             ServiceClass.getLogger().arffEntryDouble(max_frametime);
+        }
 
 
-            mean_FPS_old = mean_FPS;
-            stdev_FPS_old = stdev_FPS;
-            mean_frametime_old = mean_frametime;
-            stdev_frametime_old = stdev_frametime;
-            max_frametime_old = max_frametime;
+
+      //      mean_FPS_old = mean_FPS;
+      //      stdev_FPS_old = stdev_FPS;
+       //     mean_frametime_old = mean_frametime;
+       //     stdev_frametime_old = stdev_frametime;
+       //     max_frametime_old = max_frametime;
 
 
 
@@ -402,7 +470,6 @@ public class FPS {
 
          //   get_logs(1);
 
-        return false;
         }
     }
 

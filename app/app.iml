@@ -95,8 +95,10 @@
     <orderEntry type="library" exported="" name="apache-mime4j-0.3" level="project" />
     <orderEntry type="library" exported="" name="GraphView-4.0.1" level="project" />
     <orderEntry type="library" exported="" name="libsuperuser-1.0.0.201602271131" level="project" />
+    <orderEntry type="library" exported="" name="weka" level="project" />
     <orderEntry type="library" exported="" name="commons-io-1.2" level="project" />
     <orderEntry type="library" exported="" name="httpmime-4.0-alpha4" level="project" />
+    <orderEntry type="library" exported="" name="libsvm" level="project" />
     <orderEntry type="library" exported="" name="hardware09" level="project" />
     <orderEntry type="library" exported="" name="achartengine-1.0.0" level="project" />
     <orderEntry type="library" exported="" name="dvfs" level="project" />

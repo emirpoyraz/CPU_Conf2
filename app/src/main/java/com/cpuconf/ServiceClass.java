@@ -25,9 +25,13 @@ import android.util.Log;
 import android.widget.Toast;
 
 import java.io.BufferedReader;
+import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.DateFormat;
@@ -39,6 +43,16 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.Vector;
+
+import weka.classifiers.Classifier;
+import weka.classifiers.Evaluation;
+import weka.classifiers.functions.LibSVM;
+import weka.classifiers.meta.FilteredClassifier;
+import weka.core.Instance;
+import weka.core.Instances;
+import weka.core.SelectedTag;
+import weka.core.converters.ConverterUtils;
+import weka.gui.experiment.DatasetListPanel;
 
 /**
  * Created by emir on 3/23/16.
@@ -57,12 +71,24 @@ public class ServiceClass extends Service {
     private Applications applications;
     private CPUtil cpUtil;
 
+    private boolean firstTime = true;
+
     private FPS fps;
     final private static String FPS_PATH = "/sdcard/file.log";
 
+   private static long appStartTime = System.currentTimeMillis();
+
+    private Instances data;
+    private LibSVM svm;
+
+    private static final String ARFF_FILE_NAME = "CpuConfLogs.arff";
+
+    final private static Object mLogLock = new Object();
+
+     boolean modelIsCreated = false;
+
     private static final byte[] FPS_DATA = FileRepeatReader.generateReadfileCommand(FPS_PATH);
     private static Vector<Double> fps_log = new Vector<Double>();
-
 
     private Random random;
 
@@ -92,14 +118,15 @@ public class ServiceClass extends Service {
             "messaging",
             "calculator",
             "music",
-            "music",
+            "music_sec",
             "play.games",
             "phone",
             "trafficracer",
             "systemui",
             "googlequicksearchbox:search",
             "mean_FPS", "stdev_FPS", "mean_frametime", "stdev_frametime", "max_frametime",
-            "active_core", "active_freq",
+            "active_threads",
+            "active_core", "active_freq",   // totally 44 features
             "user_rate"};
                                         // i better write here all applications. i can find them from /data/data
     public int active_core =0;
@@ -196,7 +223,7 @@ public class ServiceClass extends Service {
 
             registerAll();
 
-            mHandler.postDelayed(mRefresh, 1500);
+            mHandler.postDelayed(mRefresh, 2000);
             mCpuHandler.postDelayed(mCpuRefresh,2000);
 
 
@@ -458,7 +485,7 @@ public class ServiceClass extends Service {
 
 */
 
-    private Handler mHandler = new Handler();   // handler is more convenient for massage passing between objects and also UI friendly.
+    Handler mHandler = new Handler();   // handler is more convenient for massage passing between objects and also UI friendly.
     // so if we need to put some info or even in notifications we may need handler instead of thread.
     Runnable mRefresh = new Runnable() {
 
@@ -502,39 +529,74 @@ public class ServiceClass extends Service {
                 boolean cpu_util, apps, fpss, threads;
                 cpu_util = apps = fpss = threads = false;
 
-                //maybe else backup plans here...
+                //cpu util
 
-                if(cpUtil.readStats()) cpu_util = true;
-                applications.getApps();
-
-
-                if(fps.get_logs(1)) fps.get_FPS_stats();
-
-              //  if(fps.get_FPS_stats()) fpss = true;
+                int arffWrite =0;
+                if(System.currentTimeMillis()-appStartTime>5000) arffWrite=1;
 
 
+                cpUtil.readStats(arffWrite);
+
+                // all 25 applications
 
 
+                applications.getApps(arffWrite);
+
+                // fps data
+
+                fps.get_logs(1);
+
+                Log.d(TAG, "BufferedReader comes from Service class");
+
+                fps.get_FPS_stats(arffWrite);
 
 
-              //  get_FPS_stats();
+              //  threads
 
 
-                mLogger.arffEntryLong(active_core);
-                mLogger.arffEntryLong(active_freq);
+                int nbRunning = 0;
+                for (Thread t : Thread.getAllStackTraces().keySet()) {
+                    if (t.getState()==Thread.State.RUNNABLE) nbRunning++;
+                }
 
-                mLogger.arffEntryLong(DataHolder.getInstance().getUserSatisfaction());
+               if(arffWrite==1) {
 
-                DataHolder.getInstance().setUserSatisfaction(0);
-
-                // fps
-
-
+                   mLogger.arffEntryLong(nbRunning);
 
 
+                   //  active configuration and user satisfaction
 
-                mLogger.arffEntryNewInstance();
+                   mLogger.arffEntryLong(active_core);
+                   mLogger.arffEntryLong(active_freq);
 
+                   mLogger.arffEntryLongLast(DataHolder.getInstance().getUserSatisfaction());
+
+
+                   DataHolder.getInstance().setUserSatisfaction(0);
+
+
+                   //  new instance
+
+                   mLogger.arffEntryNewInstance();
+
+               }
+
+
+                // check if 2 days data were collected.
+
+                if(System.currentTimeMillis()-appStartTime > 10000 ) { // 1 hour time
+
+                        Log.d(TAG, "Weka started: ");
+                        createModel();
+                        Log.d(TAG, "Weka ended: ");
+                    //    modelIsCreated = true;
+
+                        Log.d(TAG, "Weka prediction started: ");
+                        makePredictions();
+                        Log.d(TAG, "Weka prediction ended: ");
+
+
+                }
 
                 if(System.currentTimeMillis() - lastFileSize > 360000) { // 1 hour time
                     Log.d(TAG, "File Size: " + Logger.logFileSize(ServiceClass.this));
@@ -559,7 +621,7 @@ public class ServiceClass extends Service {
                 //Send to phone in every 10 sec
 
 */
-                mHandler.postDelayed(mRefresh, cpu_conf_time_interval/6); // in every 5 sec
+                mHandler.postDelayed(mRefresh, cpu_conf_time_interval / 6); // in every 5 sec
 
             } catch (Exception e) {
                 Log.i(TAG, "Error occured " + e);
@@ -567,6 +629,96 @@ public class ServiceClass extends Service {
             }
         }
     };
+
+
+    private void createModel() {
+        synchronized (mLogLock) {
+            try {
+
+           //     FileInputStream in_stream = this.openFileInput(ARFF_FILE_NAME);
+           //     DataInputStream in = new DataInputStream(in_stream);
+
+
+             //   FileInputStream in_stream = this.openFileInput("/sdcard/resultsgaming.arff");
+             //   DataInputStream in = new DataInputStream(in_stream);
+
+                Log.d(TAG, "Weka createModel1 ");
+
+
+            //    ConverterUtils.DataSource source1 = new ConverterUtils.DataSource("/data/data/com.cpuconf/files/CpuConfLogs.log");
+
+             //   FileInputStream in_stream = this.openFileInput(ARFF_FILE_NAME);
+            //    DataInputStream in = new DataInputStream(in_stream);
+
+
+                BufferedReader reader = new BufferedReader(new FileReader("/data/data/com.cpuconf/files/CpuConfLogs.arff"));
+
+
+
+                Log.d(TAG, "Weka createModel2 ");
+                Instances data = new Instances(reader);
+
+                reader.close();
+
+           //     ConverterUtils.DataSource source2 = new ConverterUtils.DataSource("/sdcard/resultsgaming.arff");
+
+
+             //   ConverterUtils.DataSource source = new ConverterUtils.DataSource("/data/data/com.cpuconf/files/CpuConfLogs.arff");
+             //   data = source2.getDataSet();
+
+             //   Instances data = new Instances(reader);
+                Log.d(TAG, "Weka createModel3 ");
+
+                // setting class attribute if the data format does not provide this information
+                // For example, the XRFF format saves the class attribute information as well
+                if (data.classIndex() == -1)
+                    data.setClassIndex(data.numAttributes() - 1);
+
+                Log.d(TAG, "Weka createModel: " + data.classAttribute().value(1));
+
+
+                svm = new LibSVM();
+                svm.setSVMType(new SelectedTag(LibSVM.SVMTYPE_EPSILON_SVR,
+                        LibSVM.TAGS_SVMTYPE));
+                svm.buildClassifier(data);
+
+                //fc = new FilteredClassifier();
+                // fc.setClassifier(svm);
+
+                Log.d(TAG, "Weka createModel: " + svm.cacheSizeTipText());
+
+
+                Evaluation eTest = new Evaluation(data);
+                eTest.evaluateModel(svm, data);
+
+            } catch (Exception e) {
+                Log.d(TAG, "Weka there is an error in model: " +e );
+
+            }
+        }
+    }
+
+
+    private void makePredictions() {
+        Log.d(TAG, "Weka prediction starts insode: " );
+        try {
+            for (int i = 0; i < data.numInstances(); i++) {
+
+                // double pred = svm.classifyInstance(data.instance(i));
+                double pred = svm.classifyInstance(data.instance(i));
+
+
+                Log.d(TAG, "Weka ID: " + data.instance(i).value(i));
+                Log.d(TAG,"Weka actual: " + data.classAttribute().value((int) data.instance(i).classValue()));
+                Log.d(TAG, "Weka predicted: " + data.classAttribute().value((int) pred));
+                Log.d(TAG, "Weka , i: " + i);
+            }
+
+
+        } catch (Exception e) {
+
+        }
+    }
 
 
 
@@ -867,13 +1019,23 @@ public class ServiceClass extends Service {
                 Log.d(TAG, "BufferedReader is closed212");
 
 
-*/
+*/              int nbThreads =  Thread.getAllStackTraces().keySet().size();
+
+                Log.d(TAG, "Number of threads2: " + nbThreads);
+
+                int nbRunning = 0;
+                for (Thread t : Thread.getAllStackTraces().keySet()) {
+                    if (t.getState()==Thread.State.RUNNABLE) nbRunning++;
+
+                }
+
+                Log.d(TAG, "Number of threads21: " + nbRunning);
 
               //  fps.get_logs(0);
-               // fps.get_logs(1);
+                // fps.get_logs(1);
 
                 fps.get_FPS_initiate();
-                fps.get_logs(1);
+            //    fps.get_logs(1);
 
                 Log.d(TAG,"Before and after bef: " + System.currentTimeMillis());
                 mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval);
@@ -1000,7 +1162,7 @@ public class ServiceClass extends Service {
             mean_FPS = FPS_sum / count;
             mean_frametime = frametime_sum / count;
 
-            Log.d(TAG, "mean fps is: " + mean_FPS);
+          //  Log.d(TAG, "mean fps is: " + mean_FPS);
 
             for (int j = 0; j < fps_log.size(); j++) {
                 temp_FPS = fps_log.get(j);
@@ -1012,7 +1174,7 @@ public class ServiceClass extends Service {
             stdev_FPS = Math.sqrt(stdev_FPS / count);
             stdev_frametime = Math.sqrt(stdev_frametime / count);
 
-            Log.d("FPSInfo: ", "" + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);
+          //  Log.d("FPSInfo: ", "" + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);
 
             fps_log.clear();
 

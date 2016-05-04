@@ -52,7 +52,7 @@ public class CPUtil {
 
 
 //TODO: Threads should be calculated!!!
-    public boolean readStats() {
+    public boolean readStats(int writeEn) {
         FileReader fstream;
 
         //   this.readCpuFreqScale();
@@ -60,62 +60,58 @@ public class CPUtil {
         try {
             fstream = new FileReader(STAT_FILE);
         } catch (FileNotFoundException e) {
-            if (DBG) {Log.e("MonNet", "Could not read " + STAT_FILE);}
+            if (DBG) {
+                Log.e("MonNet", "Could not read " + STAT_FILE);
+            }
             return false;
         }
         BufferedReader in = new BufferedReader(fstream, 500);
         String line;
-        try {
-            while ((line = in.readLine()) != null ) {
-                String[] firstLine = line.split("\\s+");
-                if (firstLine[0].equalsIgnoreCase("cpu")) {
-                    updateStats(line.trim().split("[ ]+"), 8);
-                   // return true;
-                }
-                 else if (firstLine[0].equalsIgnoreCase("cpu0")) {
-                    updateStats(line.trim().split("[ ]+"), 0);
-                  //  return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu1")) {
-                    updateStats(line.trim().split("[ ]+"), 1);
-                   // return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu2")) {
-                    updateStats(line.trim().split("[ ]+"), 2);
-                    //return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu3")) {
-                    updateStats(line.trim().split("[ ]+"),3);
-                    //return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu4")) {
-                    updateStats(line.trim().split("[ ]+"), 4);
-                   /// return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu5")) {
-                    updateStats(line.trim().split("[ ]+"), 5);
-                   // return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu6")) {
-                    updateStats(line.trim().split("[ ]+"), 6);
-                    //return true;
-                }
-                else if (firstLine[0].equalsIgnoreCase("cpu7")) {
-                    updateStats(line.trim().split("[ ]+"), 7);
-                    return true;
-                }
+        if (writeEn == 1) {
+
+            try {
+                while ((line = in.readLine()) != null) {
+                    String[] firstLine = line.split("\\s+");
+                    if (firstLine[0].equalsIgnoreCase("cpu")) {
+                        updateStats(line.trim().split("[ ]+"), 8);
+                        // return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu0")) {
+                        updateStats(line.trim().split("[ ]+"), 0);
+                        //  return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu1")) {
+                        updateStats(line.trim().split("[ ]+"), 1);
+                        // return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu2")) {
+                        updateStats(line.trim().split("[ ]+"), 2);
+                        //return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu3")) {
+                        updateStats(line.trim().split("[ ]+"), 3);
+                        //return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu4")) {
+                        updateStats(line.trim().split("[ ]+"), 4);
+                        /// return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu5")) {
+                        updateStats(line.trim().split("[ ]+"), 5);
+                        // return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu6")) {
+                        updateStats(line.trim().split("[ ]+"), 6);
+                        //return true;
+                    } else if (firstLine[0].equalsIgnoreCase("cpu7")) {
+                        updateStats(line.trim().split("[ ]+"), 7);
+                        return true;
+                    }
 
 
-
-
-
-
+                }
+            } catch (IOException e) {
+                if (DBG) {
+                    Log.e("MonNet", e.toString());
+                }
             }
-        } catch (IOException e) {
-            if (DBG) {Log.e("MonNet", e.toString());}
         }
-        return false;
-    }
+            return false;
+        }
+
 
     private void updateStats(String[] segs, int core) {
         // user = user + nice
@@ -145,9 +141,9 @@ public class CPUtil {
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
                 ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-               // if(dtotal == 0 ){
-              //      user_sys_perc = 0.0;
-              //  }
+                if(user_sys_perc <= 0){
+                    user_sys_perc = -user_sys_perc;
+                }
                 ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
             }
 

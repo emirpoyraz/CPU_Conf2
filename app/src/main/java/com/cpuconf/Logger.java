@@ -88,6 +88,15 @@ public class Logger {
         }
     }
 
+    public void arffEntryLongLast(long s){
+        try {
+            mOutputStreamArff.write(ToByteString.getBytes(s));
+          //  mOutputStreamArff.write(COMMA);
+        } catch (IOException ioe) {
+            Log.e(TAG, "ERROR: Can't write string to file: " + ioe);
+        }
+    }
+
     private static final int DBUFSIZE = 16;
     private static final byte[] dbuf = new byte[DBUFSIZE];
 

@@ -69,30 +69,27 @@ public class Applications {
             "com.google.android.apps.photos",
             "com.google.android.googlequicksearchbox",
             "com.google.android.googlequicksearchbox:interactor",
-    "com.google.android.gms",
-    "com.ea.game.nfs14_row",
-    "com.ea.games.r3_na",
-    "com.google.android.GoogleCamera",
-    "com.google.android.apps.maps",
-    "com.google.android.apps.messaging",
-    "com.google.android.calculator",
-    "com.google.android.music",
-    "com.google.android.music",
-    "com.google.android.play.games",
-    "com.android.phone",
-    "com.skgames.trafficracer",
-    "com.android.systemui",
-    "com.google.android.googlequicksearchbox:search"));
+            "com.google.android.gms",
+            "com.ea.game.nfs14_row",
+            "com.ea.games.r3_na",
+            "com.google.android.GoogleCamera",
+            "com.google.android.apps.maps",
+            "com.google.android.apps.messaging",
+            "com.google.android.calculator",
+            "com.google.android.music",
+            "com.google.android.gms.persistent",
+            "com.google.android.play.games",
+            "com.android.phone",
+            "com.skgames.trafficracer",
+            "com.android.systemui",
+            "com.google.android.googlequicksearchbox:search"));
 
     //  private static final byte[] PROCESSES_FILE_COMMAND = FileRepeatReader.generateReadfileCommand(PROCESSES_FILE);
 
 
 
     public Applications(){
-      //  getApps();
-
-
-
+        getApps(0);
 
     }
 
@@ -107,7 +104,7 @@ public class Applications {
 
 
 
-    public void getApps(){
+    public void getApps(int writeEn){
         int totalApps=0;
         long totalTimeInUser =0;
         long deltaTotalUser =0;
@@ -216,7 +213,7 @@ public class Applications {
 
                                 ServiceClass.getLogger().logEntry("App: " + appName + " " + deltaUserTime);
 
-                                ServiceClass.getLogger().arffEntryLong(deltaUserTime);
+                                if(writeEn==1) ServiceClass.getLogger().arffEntryLong(deltaUserTime);
 
 
 
