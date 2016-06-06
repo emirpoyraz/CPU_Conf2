@@ -1,5 +1,6 @@
 package com.cpuconf;
 
+import android.annotation.TargetApi;
 import android.app.ActivityManager;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
@@ -10,7 +11,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.media.AudioManager;
+import android.media.MediaPlayer;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
+import android.net.Uri;
 import android.net.wifi.WifiManager;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
@@ -35,7 +41,10 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.DateFormat;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -47,6 +56,7 @@ import java.util.Vector;
 import weka.classifiers.Classifier;
 import weka.classifiers.Evaluation;
 import weka.classifiers.functions.LibSVM;
+import weka.classifiers.trees.M5P;
 import weka.classifiers.meta.FilteredClassifier;
 import weka.core.Instance;
 import weka.core.Instances;
@@ -70,8 +80,13 @@ public class ServiceClass extends Service {
   //  private UStats uStats;
     private Applications applications;
     private CPUtil cpUtil;
+    private RunningProcs runningProcs;
+    private VoltageNow voltageNow;
+    private CPUFreq cpuFreq;
+    private Network network;
 
     private boolean firstTime = true;
+    private String fpsline;
 
     private FPS fps;
     final private static String FPS_PATH = "/sdcard/file.log";
@@ -80,54 +95,56 @@ public class ServiceClass extends Service {
 
     private Instances data;
     private LibSVM svm;
+    private M5P m5p;
+
+    private  String currentConf="44std";
 
     private static final String ARFF_FILE_NAME = "CpuConfLogs.arff";
+    private static final String FPS_CHECKING = "FPS.log";
 
     final private static Object mLogLock = new Object();
 
-     boolean modelIsCreated = false;
+    private boolean modelIsCreated = false;
 
     private static final byte[] FPS_DATA = FileRepeatReader.generateReadfileCommand(FPS_PATH);
     private static Vector<Double> fps_log = new Vector<Double>();
 
     private Random random;
+    private static Vector<String> blackListConf = new Vector<String>();
+
+    private int log_counter=1;
+    private String activeCore = "1min";
+    private boolean standardGov= true;
 
     private static long cpu_conf_time_interval = 30000; // 30 sec to change cpu configuration
 
     private int cpu_change_counter;
 
+    private int order =0;
+
+    ArrayList<String> cpuConfList = new ArrayList<String>(Arrays.asList(
+            "20min", "20mid", "20std",
+            "02min","02mid","02std",
+            "40min", "40mid", "40std",
+            "04min","04mid","04std",
+            "42min", "42mid", "42std",
+            "24min","24mid","24std",
+            "44min","44mid","44std"));
+
     private long lastTime = System.currentTimeMillis();
     private long lastFileSize = System.currentTimeMillis();
-    private static String[] featureList = {"cpuT", "cpu0", "cpu1", "cpu2", "cpu3" , "cpu4" , "cpu5" , "cpu6" , "cpu7" ,
-            "greenwall",
-            "youtube",
-            "videos",
-            "universalimageloader",
-            "calendar",
-            "chrome",
-            "deskclock",
-            "talk",
-            "photos",
-            "googlequicksearchbox",
-            "googlequicksearchbox:interactor",
-            "gms",
-            "nfs14_row",
-            "r3_na",
-            "GoogleCamera",
-            "maps",
-            "messaging",
-            "calculator",
-            "music",
-            "music_sec",
-            "play.games",
-            "phone",
-            "trafficracer",
-            "systemui",
-            "googlequicksearchbox:search",
-            "mean_FPS", "stdev_FPS", "mean_frametime", "stdev_frametime", "max_frametime",
-            "active_threads",
-            "active_core", "active_freq",   // totally 44 features
-            "user_rate"};
+    private static String[] featureList = {"CpuUtilT", "CpuUtil0", "CpuUtil1", "CpuUtil2",
+            "CpuUtil3" , "CpuUtil4" , "CpuUtil5" , "CpuUtil6" , "CpuUtil7" ,"CpuFreq0", "CpuFreq1", "CpuFreq2",
+            "CpuFreq3" , "CpuFreq4" , "CpuFreq5" , "CpuFreq6" , "CpuFreq7" ,
+            "mean_FPS", "std_FPS", "mean_f_time", "stdev_f_time", "max_f_time",
+            "act_proc",
+            "wifi",// totally 41 features
+            "satisfaction"};
+
+    private static String[] featureListStaticModel = {"CpuUtilT","CpuUtil3", "CpuUtil7", "CpuFreq0", "CpuFreq1", "CpuFreq2",
+            "CpuFreq3" , "CpuFreq4" , "CpuFreq5" , "CpuFreq6" , "CpuFreq7" ,
+            "mean_FPS", "std_FPS", "mean_f_time", "stdev_f_time", "max_f_time","act_proc","wifi",
+            "satisfaction"};
                                         // i better write here all applications. i can find them from /data/data
     public int active_core =0;
     public int active_freq=0;
@@ -151,54 +168,73 @@ public class ServiceClass extends Service {
     public void onCreate() {
 
 
-
         try {
 
 
-
-
             Logger.createLogFile(this);
-           // Logger.createLogFileToUpload(this);
+            // Logger.createLogFileToUpload(this);
             mLogger.logEntry("Logger On");
             //  mProcessManager.readStats();
 
             Logger.createArffFile(this);  // for weka ml, arff file format
 
+            Logger.createFpsFile(this);
 
-            Logger.InitiateArffFile(featureList);
+            File log_file = new File(this.getFilesDir(), ARFF_FILE_NAME);
 
-            int notificationId = 001;
-            Intent viewIntent = new Intent(this, Dissatisfaction.class);
-            PendingIntent viewPendingIntent =
-                    PendingIntent.getActivity(this, 0, viewIntent, 0);
+            Log.d(TAG, "File length is: " + log_file.length());
 
+            if (log_file.length()<=20) {
 
-            NotificationCompat.Builder notificationBuilder =
-                    new NotificationCompat.Builder(this)
-                            .setSmallIcon(R.drawable.normal)
-                            .setContentTitle(getText(R.string.iconized_alert1))
-                            .setContentText("Push to rank")
-                            .setContentIntent(viewPendingIntent)
-                            .setOngoing(true);
+                Logger.InitiateArffFile(featureListStaticModel);
+            }
 
 
-            NotificationManagerCompat notificationManager =
-                    NotificationManagerCompat.from(this);
 
-            notificationManager.notify(notificationId, notificationBuilder.build());
+                int notificationId = 001;
+                Intent viewIntent = new Intent(this, Dissatisfaction.class);
+                PendingIntent viewPendingIntent =
+                        PendingIntent.getActivity(this, 0, viewIntent, 0);
 
+
+                NotificationCompat.Builder notificationBuilder =
+                        new NotificationCompat.Builder(this)
+                                .setSmallIcon(R.drawable.normal)
+                                .setContentTitle(getText(R.string.iconized_alert1))
+                                .setContentText("Push to rank")
+                                .setContentIntent(viewPendingIntent)
+                                .setOngoing(true);
+
+
+                NotificationManagerCompat notificationManager =
+                        NotificationManagerCompat.from(this);
+
+                notificationManager.notify(notificationId, notificationBuilder.build());
+
+
+
+          //  PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+          //  PowerManager.WakeLock wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,
+           //         "MyWakelockTag");
+           // wakeLock.acquire();
 
 
             //mStatsProc.reset();
-         //   uStats = new UStats();
+            //   uStats = new UStats();
 
             fps = new FPS();
-            applications = new Applications();
+          //  applications = new Applications();
             cpUtil = new CPUtil();
+            runningProcs = new RunningProcs();
+            voltageNow = new VoltageNow();
+            cpuFreq = new CPUFreq();
+            network = new Network();
 
             random = new Random();
 
-            mActivityManager = (ActivityManager) this.getSystemService( ACTIVITY_SERVICE );
+            Collections.shuffle(cpuConfList);
+
+            mActivityManager = (ActivityManager) this.getSystemService(ACTIVITY_SERVICE);
 
 
             /*
@@ -224,23 +260,25 @@ public class ServiceClass extends Service {
             registerAll();
 
             mHandler.postDelayed(mRefresh, 2000);
-            mCpuHandler.postDelayed(mCpuRefresh,2000);
+          //  mCpuHandler.postDelayed(mCpuRefresh, 2000);
 
 
-            try {
-                mScreenBrightness = Settings.System.getInt(getContentResolver(),
-                        Settings.System.SCREEN_BRIGHTNESS);
-                if (mScreenBrightness >= 0) {
-                    if (DBG) {Log.i(TAG, "Screen brightness now " + mScreenBrightness);}
-                    //mLogger.logIntEntry(Logger.EntryType.SCREEN_BRIGHTNESS, mScreenBrightness);
-                    //
-                    //  mLogger.screenBrightness(mScreenBrightness);
+            mScreenBrightness = Settings.System.getInt(getContentResolver(),
+                    Settings.System.SCREEN_BRIGHTNESS);
+            if (mScreenBrightness >= 0) {
+                if (DBG) {
+                    Log.i(TAG, "Screen brightness now " + mScreenBrightness);
                 }
-            } catch (Settings.SettingNotFoundException e) {
-                if (DBG) {Log.e(TAG, "Brightness setting not found");}
+                //mLogger.logIntEntry(Logger.EntryType.SCREEN_BRIGHTNESS, mScreenBrightness);
+                //
+                //  mLogger.screenBrightness(mScreenBrightness);
+            }
+        } catch (Settings.SettingNotFoundException e) {
+            if (DBG) {
+                Log.e(TAG, "Brightness setting not found");
             }
         } catch (Throwable t) {
-            Log.d(TAG,"Error Occured in ServiceClass: " + t);
+            Log.d(TAG, "Error Occured in ServiceClass: " + t);
         }
     }
 
@@ -302,6 +340,7 @@ public class ServiceClass extends Service {
                 if (DBG) {Log.i(TAG,">>>>>>>>>> caught ACTION_SCREEN_OFF <<<<<<<<<<<");	}
                 //mLogger.logSimpleEntry(Logger.EntryType.SCREEN_OFF);
                 mLogger.logEntry("ScreenOff");
+                blackListConf.clear();  // screen is turned off, so that the black list will start from beginning, workload changes
                 //  if(wakeLock==null)wakeLock.acquire();
 
             }
@@ -423,6 +462,8 @@ public class ServiceClass extends Service {
 
             }
 
+
+
             // TODO: maybe add NULL checking to be safe with all extra.get()s
 			/*
 			// This one will take some more work with configuration DIFF
@@ -440,7 +481,11 @@ public class ServiceClass extends Service {
         Toast.makeText(this, "service onDestroy", Toast.LENGTH_LONG).show();
         unregisterReceiver(mBroadcastIntentReceiver);
         mHandler.removeCallbacksAndMessages(null);
-        mCpuHandler.removeCallbacksAndMessages(null);
+    //    mCpuHandler.removeCallbacksAndMessages(null);
+
+        Intent service = new Intent(this, ServiceClass.class);
+        MyWakefulReceiver.completeWakefulIntent(service);
+
         stopSelf();
     }
 
@@ -498,105 +543,253 @@ public class ServiceClass extends Service {
 
 
 
-             //   mHandler.postDelayed(mRefresh, 3000);
 
-/*
-                String[] activePackages;
-                if (Build.VERSION.SDK_INT > Build.VERSION_CODES.LOLLIPOP) { // so it is lollipop then it is gonna go here!
-                    activePackages = getActivePackagesCompat();
-                   // Log.d(TAG, activePackages[0]);
-                   // Log.d(TAG,"it is in build-1" + activePackages.toString());
-                } else {
-                    activePackages = getActivePackagesCompat();
-                  //  Log.d(TAG,"it is in build-2" + activePackages.toString());
-                }
-                if (activePackages != null) {
-                    for (String activePackage : activePackages) {
-                        Log.d(TAG, activePackage);
-                        if (activePackage.equals("com.google.android.calendar")) {
-                            //Calendar app is launched, do something
-                           // Log.d(TAG,"Calender is working");
-                        }
-                      //  else Log.d(TAG,"Calender is not working");
-                    }
-                }
-
-*/
              //   UStats.getStats(ServiceClass.this);
              //   uStats.printCurrentUsageStatus(ServiceClass.this);
                 Log.d(TAG, "Before and after applicationss: " + System.currentTimeMillis());
 
-                boolean cpu_util, apps, fpss, threads;
-                cpu_util = apps = fpss = threads = false;
+                boolean cpu_util, apps, fpss;
+                cpu_util = apps = fpss = false;
 
                 //cpu util
 
-                int arffWrite =0;
-                if(System.currentTimeMillis()-appStartTime>5000) arffWrite=1;
+               // int arffWrite =0;
+              //  if(System.currentTimeMillis()-appStartTime>=3000) arffWrite=1;
 
+                double[] cpuUtils = new double[8];
 
-                cpUtil.readStats(arffWrite);
+                cpuUtils = cpUtil.readStats();
+
+                if(cpuUtils!=null) cpu_util = true;
+
+                double[] cpuFreqs = cpuFreq.readStats();
+
 
                 // all 25 applications
 
+             //   long[] appsList = new long[25];
 
-                applications.getApps(arffWrite);
+             //   appsList = applications.getApps();
+
+              //  if(appsList!=null) apps = true;
 
                 // fps data
 
-                fps.get_logs(1);
+                fps.get_logs();
 
                 Log.d(TAG, "BufferedReader comes from Service class");
 
-                fps.get_FPS_stats(arffWrite);
+                double[] fpsStats = new double[5];
 
 
-              //  threads
+                fpsStats = fps.get_FPS_stats();
+
+                if (fpsStats != null) fpss = true;
 
 
-                int nbRunning = 0;
-                for (Thread t : Thread.getAllStackTraces().keySet()) {
-                    if (t.getState()==Thread.State.RUNNABLE) nbRunning++;
+
+              //  runnning processes
+
+                long runnPro =0;
+
+                runnPro = runningProcs.readStats();
+
+                int[] wifiBlu = network.readWifi();
+
+                int core,freq;
+
+                if(currentConf.contains("02")||currentConf.contains("20")){
+                    core = 2;
                 }
+                else if(currentConf.contains("24")||currentConf.contains("42")){
+                    core = 6;
+                }
+                else if(currentConf.contains("04")||currentConf.contains("40")){
+                    core = 4;
+                }
+                else if(currentConf.contains("24")||currentConf.contains("42")){
+                    core = 6;
+                }
+                else core =8;
 
-               if(arffWrite==1) {
+                if(currentConf.contains("min")){
+                    freq=0;
+                }
+                else if(currentConf.contains("mid")){
+                    freq=1;
+                }
+                else freq=2;
 
-                   mLogger.arffEntryLong(nbRunning);
 
 
-                   //  active configuration and user satisfaction
 
-                   mLogger.arffEntryLong(active_core);
-                   mLogger.arffEntryLong(active_freq);
+             //   int nbRunning = 0;
+             //   for (Thread t : Thread.getAllStackTraces().keySet()) {
+             //       if (t.getState()==Thread.State.RUNNABLE) nbRunning++;
+            //    }
+
+               if(cpu_util && fpss) { // all file writing part!!!
+
+                   for (int i = 0; i < cpuUtils.length; i++) {
+                      // mLogger.arffEntryDouble(cpuUtils[i]);
+                       //    mLogger.logEntry("CPU"+i+" " + cpuUtils[i] + " " + cpuFreqs[i]);
+                   }
+                   mLogger.arffEntryDouble(cpuUtils[0]);
+                   mLogger.arffEntryDouble(cpuUtils[3]);
+                   mLogger.arffEntryDouble(cpuUtils[7]);
+
+
+                   for (int b = 0; b < cpuFreqs.length; b++) {
+                       mLogger.arffEntryDouble(cpuFreqs[b]);
+                       //    mLogger.logEntry("CPU"+i+" " + cpuUtils[i] + " " + cpuFreqs[i]);
+                   }
+
+                   mLogger.logEntry("Active core number and frequecy: " + activeCore);
+
+
+                   mLogger.logEntry("CPUtils:" + " " + cpuUtils[0] + " " + cpuUtils[1] + " " + cpuUtils[2] + " " + cpuUtils[3] + " "
+                           + cpuUtils[4] + " " + cpuUtils[5] + " " + cpuUtils[6] + " " + cpuUtils[7] + " " + cpuUtils[8]);
+
+                   mLogger.logEntry("CPUFreqs:" + " " + cpuFreqs[0] + " " + cpuFreqs[1] + " " + cpuFreqs[2] + " " + cpuFreqs[3] + " "
+                           + cpuFreqs[4] + " " + cpuFreqs[5] + " " + cpuFreqs[6] + " " + cpuFreqs[7]);
+
+
+                   Log.d(TAG, "CPU_freq_utilStarts: ");
+                   Log.d(TAG, "CPU_freq_util0: " + cpuFreqs[0] + "   " + cpuUtils[1]);
+                   Log.d(TAG, "CPU_freq_util1: " + cpuFreqs[1] + "   " + cpuUtils[2]);
+                   Log.d(TAG, "CPU_freq_util2: " + cpuFreqs[2] + "   " + cpuUtils[3]);
+                   Log.d(TAG, "CPU_freq_util3: " + cpuFreqs[3] + "   " + cpuUtils[4]);
+                   Log.d(TAG, "CPU_freq_util4: " + cpuFreqs[4] + "   " + cpuUtils[5]);
+                   Log.d(TAG, "CPU_freq_util5: " + cpuFreqs[5] + "   " + cpuUtils[6]);
+                   Log.d(TAG, "CPU_freq_util6: " + cpuFreqs[6] + "   " + cpuUtils[7]);
+                   Log.d(TAG, "CPU_freq_util7: " + cpuFreqs[7] + "   " + cpuUtils[8]);
+                   Log.d(TAG, "CPU_freq_utilEnds: ");
+
+
+/*
+                   for (int j = 0; j < appsList.length; j++) {
+                       mLogger.arffEntryLong(appsList[j]);
+                   }
+
+                   mLogger.logEntry("AppsAll:" + " " + appsList[0] + " " + appsList[1] + " " + appsList[2] + " " + appsList[3] + " "
+                           + appsList[4] + " " + appsList[5] + " " + appsList[6] + " " + appsList[7] + " " + appsList[8] + " " +
+                           appsList[9] + " " + appsList[10] + " " + appsList[11] + " " + appsList[12] + " " + appsList[13] + " "
+                           + appsList[14] + " " + appsList[15] + " " + appsList[16] + " " + appsList[17] + " " + appsList[18] + " "
+                           + appsList[19] + " " + appsList[20] + " " + appsList[21] + " " + appsList[22] + " " + appsList[23] + " "
+                           + appsList[24]);
+*/
+
+                   for (int k = 0; k < fpsStats.length; k++) {
+                       mLogger.arffEntryDouble(fpsStats[k]);
+                   }
+
+
+                   mLogger.logEntry("FPSAll:" + " " + fpsStats[0] + " " + fpsStats[1] + " " + fpsStats[2]
+                           + " " + fpsStats[3] + " " + fpsStats[4]);
+
+
+                   mLogger.arffEntryLong(runnPro);
+
+                   mLogger.logEntry("RunningProc:" + " " + runnPro);
+
+                //   mLogger.arffEntryLong(core);
+                //   mLogger.arffEntryLong(freq);
+
+
+                   mLogger.arffEntryDouble(wifiBlu[0]);
+
+                  // for (int a = 0; a < wifiBlu.length; a++) {
+                  //     mLogger.arffEntryDouble(wifiBlu[a]);
+                       //    mLogger.logEntry("CPU"+i+" " + cpuUtils[i] + " " + cpuFreqs[i]);
+                 //  }
+
+
+                   mLogger.logEntry("WifiBlue:" + " "+ wifiBlu[0] + " " + wifiBlu[1] + " "+ wifiBlu[2] +" "+ wifiBlu[3]+
+                   " "+  wifiBlu[4] +" "+ wifiBlu[5]);
+
+                   //  mLogger.arffEntryLong(active_core);
+                   //   mLogger.arffEntryLong(active_freq);
+
+
+                    mLogger.logEntry("core: " + core);
+                   mLogger.logEntry("freq: " + freq);
+
+                   //  new instance
+
+
+
+
+                   //  long current_now = getCurrent();
+                   long voltage =0;
+                   long current_now = 0;
+                   double power =0;
+
+                   try {
+                       voltage = voltageNow.readVoltage();
+                       current_now = voltageNow.readCurrent();
+                       power = current_now * voltage / 1000000000; // 10^9
+                       Log.d(TAG, "Power: " + power);
+                   }catch (Exception e){
+                       Log.d(TAG,"Voltage Error: " + e);
+                   }
+
+
+                   //   mLogger.logEntry("Current1: " + current_now);
+
+                   mLogger.logEntry("CurrentNow: " + current_now);
+
+                   mLogger.logEntry("VoltageNow: " + voltage);
+
+                   mLogger.logEntry("PowerCurAvg: " + power);
 
                    mLogger.arffEntryLongLast(DataHolder.getInstance().getUserSatisfaction());
 
+                   mLogger.logEntry("StGovernor: " + String.valueOf(standardGov));
+
+                   mLogger.logEntry("UserSatisfaction: " + DataHolder.getInstance().getUserSatisfaction());
 
                    DataHolder.getInstance().setUserSatisfaction(0);
 
 
-                   //  new instance
+
+                   Date date = new Date();
+                   mLogger.logEntry("Time: " + date + " in milisec: " + System.currentTimeMillis());
+
+                   mLogger.logEntry("End_of_log: " + log_counter);
+
+                   log_counter++;
 
                    mLogger.arffEntryNewInstance();
 
                }
-
-
                 // check if 2 days data were collected.
 
-                if(System.currentTimeMillis()-appStartTime > 10000 ) { // 1 hour time
+             //   if(System.currentTimeMillis()-appStartTime >= 86400000 ) { // 24 hour time
+
+             //   if(System.currentTimeMillis()-appStartTime >= 60000 ) { // 24 hour time
+
+
+           //     if (Logger.logFileSize(ServiceClass.this) > Definitions.TRAINING_SIZE_THRESHOLD && !modelIsCreated) {
+                if (!modelIsCreated) {
+              //  if (appStartTime-System.currentTimeMillis()>=86400000/2) {
 
                         Log.d(TAG, "Weka started: ");
                         createModel();
                         Log.d(TAG, "Weka ended: ");
-                    //    modelIsCreated = true;
-
-                        Log.d(TAG, "Weka prediction started: ");
-                        makePredictions();
-                        Log.d(TAG, "Weka prediction ended: ");
+                       modelIsCreated = true;
+                        mLogger.logEntry("TrainingData for 12 hours: "+ Logger.logFileSize(ServiceClass.this));
 
 
                 }
+                if(modelIsCreated){
+
+                    Log.d(TAG, "Weka prediction started: ");
+                    makePredictions();
+                    Log.d(TAG, "Weka prediction ended: ");
+
+                }
+
+
 
                 if(System.currentTimeMillis() - lastFileSize > 360000) { // 1 hour time
                     Log.d(TAG, "File Size: " + Logger.logFileSize(ServiceClass.this));
@@ -621,7 +814,7 @@ public class ServiceClass extends Service {
                 //Send to phone in every 10 sec
 
 */
-                mHandler.postDelayed(mRefresh, cpu_conf_time_interval / 6); // in every 5 sec
+                mHandler.postDelayed(mRefresh, cpu_conf_time_interval / 3); // in every 10 sec
 
             } catch (Exception e) {
                 Log.i(TAG, "Error occured " + e);
@@ -631,68 +824,74 @@ public class ServiceClass extends Service {
     };
 
 
+
+
+
     private void createModel() {
         synchronized (mLogLock) {
             try {
 
-           //     FileInputStream in_stream = this.openFileInput(ARFF_FILE_NAME);
-           //     DataInputStream in = new DataInputStream(in_stream);
 
-
-             //   FileInputStream in_stream = this.openFileInput("/sdcard/resultsgaming.arff");
-             //   DataInputStream in = new DataInputStream(in_stream);
 
                 Log.d(TAG, "Weka createModel1 ");
 
 
-            //    ConverterUtils.DataSource source1 = new ConverterUtils.DataSource("/data/data/com.cpuconf/files/CpuConfLogs.log");
 
-             //   FileInputStream in_stream = this.openFileInput(ARFF_FILE_NAME);
-            //    DataInputStream in = new DataInputStream(in_stream);
+           //     BufferedReader reader = new BufferedReader(new FileReader("/data/data/com.cpuconf/files/CpuConfLogs.arff"));
 
 
-                BufferedReader reader = new BufferedReader(new FileReader("/data/data/com.cpuconf/files/CpuConfLogs.arff"));
+            //    ConverterUtils.DataSource dataSource = new ConverterUtils.DataSource("/data/data/com.cpuconf/files/CpuConfLogs.arff");
+
+
+                ConverterUtils.DataSource dataSource = new ConverterUtils.DataSource("/sdcard/TotalStatic4.arff");
+
+
+                data = dataSource.getDataSet();
+
+                data.setClassIndex(data.numAttributes()-1);
 
 
 
-                Log.d(TAG, "Weka createModel2 ");
-                Instances data = new Instances(reader);
+            //    data = new Instances(reader);
 
-                reader.close();
-
-           //     ConverterUtils.DataSource source2 = new ConverterUtils.DataSource("/sdcard/resultsgaming.arff");
-
-
-             //   ConverterUtils.DataSource source = new ConverterUtils.DataSource("/data/data/com.cpuconf/files/CpuConfLogs.arff");
-             //   data = source2.getDataSet();
-
-             //   Instances data = new Instances(reader);
-                Log.d(TAG, "Weka createModel3 ");
+             //   reader.close();
 
                 // setting class attribute if the data format does not provide this information
                 // For example, the XRFF format saves the class attribute information as well
-                if (data.classIndex() == -1)
-                    data.setClassIndex(data.numAttributes() - 1);
+             //   if (data.classIndex() == -1)
+             //       data.setClassIndex(data.numAttributes() - 1);
 
-                Log.d(TAG, "Weka createModel: " + data.classAttribute().value(1));
+                Log.d(TAG, "Weka createModel11: " + data.numInstances());
 
 
-                svm = new LibSVM();
-                svm.setSVMType(new SelectedTag(LibSVM.SVMTYPE_EPSILON_SVR,
-                        LibSVM.TAGS_SVMTYPE));
-                svm.buildClassifier(data);
+            //    svm = new LibSVM();
+            //    svm.setSVMType(new SelectedTag(LibSVM.SVMTYPE_EPSILON_SVR,
+            //            LibSVM.TAGS_SVMTYPE));
+            //    svm.buildClassifier(data);
+
+                m5p = new M5P();
+                m5p.buildClassifier(data);
+
+
+
 
                 //fc = new FilteredClassifier();
                 // fc.setClassifier(svm);
 
-                Log.d(TAG, "Weka createModel: " + svm.cacheSizeTipText());
+                Log.d(TAG, "Weka createModel12: ");
 
 
                 Evaluation eTest = new Evaluation(data);
-                eTest.evaluateModel(svm, data);
+                eTest.evaluateModel(m5p, data);
+
+                Log.d(TAG, "Weka createModel13: " + m5p.getMinNumInstances());
+
+                Log.d(TAG, "Results: " + eTest.correct());
 
             } catch (Exception e) {
                 Log.d(TAG, "Weka there is an error in model: " +e );
+
+                mLogger.logEntry("Errorrr in this line: " + e);
 
             }
         }
@@ -702,27 +901,181 @@ public class ServiceClass extends Service {
     private void makePredictions() {
         Log.d(TAG, "Weka prediction starts insode: " );
         try {
-            for (int i = 0; i < data.numInstances(); i++) {
+        //    for (int i = 0; i < data.numInstances(); i++) {
 
                 // double pred = svm.classifyInstance(data.instance(i));
-                double pred = svm.classifyInstance(data.instance(i));
+             //   double pred = svm.classifyInstance(data.instance(data.numInstances()-1));
+
+            ConverterUtils.DataSource dataSource1 = new ConverterUtils.DataSource("/data/data/com.cpuconf/files/CpuConfLogs.arff");
+
+            Instances testData = dataSource1.getDataSet();
+
+            testData.setClassIndex(testData.numAttributes()-1);
+
+          //  Instance testing = data.instance(data.numInstances() - 1);
 
 
-                Log.d(TAG, "Weka ID: " + data.instance(i).value(i));
-                Log.d(TAG,"Weka actual: " + data.classAttribute().value((int) data.instance(i).classValue()));
-                Log.d(TAG, "Weka predicted: " + data.classAttribute().value((int) pred));
-                Log.d(TAG, "Weka , i: " + i);
-            }
+
+
+
+             //   testing.setMissing(testing.numAttributes() - 1);
+
+           //     Log.d(TAG, "Weka actual: " + testData.classAttribute().value((int) testData.classValue()));
+
+                Log.d(TAG, "Weka actual: " + testData.instance(testData.numInstances()-1).classValue());
+
+                Instance newInst= testData.lastInstance();
+
+            Log.d(TAG,"Weka last Instance1: "+ newInst);
+
+
+            double pred = m5p.classifyInstance(newInst);
+
+                Log.d(TAG,"Weka pred1: " + pred);
+
+                Log.d(TAG, "Weka pred: " + testData.classAttribute().value((int) pred));
+
+
+          if(!standardGov) {
+
+
+              if (pred >= 1.0) {
+                  if(!blackListConf.contains(currentConf)) {
+                      blackListConf.add(currentConf);
+                      Log.d(TAG, "BlackList: " + currentConf);
+                  }
+                  increaseCore();
+
+              } else if (pred >= 0.5) {
+                  increaseFreq();
+              } else if (pred <= 0.3) {
+                  decreaseFreqCore();
+              }
+          }
+            else currentConf = "44std";
+
+
+            //    Log.d(TAG, "Weka ID: " + data.instance(data.numInstances() - 1));
+            //    Log.d(TAG,"Weka actual: " + data.classAttribute().value((int) data.instance(data.numInstances()-1).classValue()));
+            //    Log.d(TAG, "Weka predicted: " + data.classAttribute().value((int) pred));
+            //    Log.d(TAG, "Weka , i: " + (data.numAttributes()-1));
+         //   }
+
+
+         //   mLogger.logEntry("Weka actual: " + data.classAttribute().value((int) data.instance(data.numInstances()-1).classValue()));
+         //   mLogger.logEntry("Weka predicted: " + data.classAttribute().value((int) pred));
 
 
         } catch (Exception e) {
+            Log.d(TAG, "Weka , error: " + e);
 
         }
     }
 
+    private void increaseCore() {
+        if(currentConf.equalsIgnoreCase("20min") || currentConf.equalsIgnoreCase("02min") ){
+            currentConf="40min";
+        }
+        else if(currentConf.equalsIgnoreCase("40min") || currentConf.equalsIgnoreCase("04min") ){
+            currentConf="24min";
+        }
+        else currentConf ="44min";
+
+    }
+
+    private void increaseFreq() {
+        if(currentConf.equalsIgnoreCase("20min") || currentConf.equalsIgnoreCase("02min") ){
+            currentConf="20mid";
+        }
+
+        else if(currentConf.equalsIgnoreCase("20mid") || currentConf.equalsIgnoreCase("02mid") ){
+            currentConf="20std";
+        }
+
+        else if(currentConf.equalsIgnoreCase("20std") || currentConf.equalsIgnoreCase("02std") ){
+            currentConf="40min";
+        }
+
+        else if(currentConf.equalsIgnoreCase("40min") || currentConf.equalsIgnoreCase("04min")){
+            currentConf="40mid";
+        }
+
+        else if(currentConf.equalsIgnoreCase("40mid") || currentConf.equalsIgnoreCase("04mid") ){
+            currentConf="40std";
+        }
+
+        else if(currentConf.equalsIgnoreCase("24min") || currentConf.equalsIgnoreCase("42min") ){
+            currentConf="42mid";
+        }
+
+      //  else currentConf ="44min";
+
+    }
+
+    private void decreaseFreqCore(){
+        Log.d(TAG, "Weka decreaseFreqCore");
+        if(currentConf.equalsIgnoreCase("44std") || currentConf.equalsIgnoreCase("44mid") ||
+                currentConf.equalsIgnoreCase("44min") || currentConf.equalsIgnoreCase("44mid")){
+            currentConf="24std";
+        }
+
+        else if((currentConf.equalsIgnoreCase("42mid") || currentConf.equalsIgnoreCase("24mid") ||
+                currentConf.equalsIgnoreCase("42std") || currentConf.equalsIgnoreCase("24std")) && !blackListConf.contains("40std")){
+            currentConf="40std";
+        }
+
+        else if((currentConf.equalsIgnoreCase("42min") || currentConf.equalsIgnoreCase("24min")) && !blackListConf.contains("40mid") ){
+            currentConf="40mid";
+        }
+
+        else if((currentConf.equalsIgnoreCase("40mid") || currentConf.equalsIgnoreCase("04mid") ||
+                currentConf.equalsIgnoreCase("40std") || currentConf.equalsIgnoreCase("04std")) && !blackListConf.contains("40min")){
+            currentConf="40min";
+        }
+
+        else if((currentConf.equalsIgnoreCase("40min") || currentConf.equalsIgnoreCase("04min")) && !blackListConf.contains("20mid")) {
+            currentConf="20mid";
+        }
+
+        else if((currentConf.equalsIgnoreCase("20std") || currentConf.equalsIgnoreCase("20mid") ||
+                currentConf.equalsIgnoreCase("02std") || currentConf.equalsIgnoreCase("02mid")) && !blackListConf.contains("20min")){
+            currentConf="20min";
+        }
+
+       // else currentConf ="44std";
+
+    }
 
 
-    private Handler mCpuHandler = new Handler();   // So this handler for randomly changing the cpu configuration
+    private boolean blackList(String s){
+        if(blackListConf.contains(s)){
+            return true;
+        }
+        else return false;
+    }
+
+
+
+
+
+
+    private String shuffleConfs(int order){
+
+        String returnValue = cpuConfList.get(order);
+
+
+        if(order>=20){
+
+            Collections.shuffle(cpuConfList);
+        }
+
+        return returnValue;
+
+    }
+
+
+
+  //  private Handler mCpuHandler = new Handler();   // So this handler for randomly changing the cpu configuration
 
 
     Runnable mCpuRefresh = new Runnable() {
@@ -736,26 +1089,29 @@ public class ServiceClass extends Service {
             try {
                     lastTime = System.currentTimeMillis();
 
+    /*
                     random = new Random(); // for active core number
 
-                    int i = random.nextInt(9 - 0) + 0;
+                    int i = random.nextInt(7 - 0) + 0;
 
                     random = new Random(); // for cpu frequency
 
-                    int j = random.nextInt(4 - 0) + 0;
+                    int j = random.nextInt(3 - 0) + 0;
 
                     active_core = i;
                     active_freq = j;
 
-
-                Log.d(TAG, "Active core number and frequecy: " + i + " " + j);
-
-               // fps.get_logs(0);
+    */
+              //   currentConf = shuffleConfs(order);
 
 
-                  //  Log.d(TAG, "It calls fps object");
+                activeCore = currentConf;
 
-                    mLogger.logEntry("Active core number and frequecy: " + i + " " + j);
+
+                Log.d(TAG, "Active core number and frequecy: " + currentConf);
+
+
+
 
 
                     // final Process process = Runtime.getRuntime().exec(new String[] { "su", "-c", "getevent -lt /dev/input/event0 > /sdcard/geteventFile" });
@@ -763,181 +1119,330 @@ public class ServiceClass extends Service {
                 //    Process process = Runtime.getRuntime().exec("su");
                     Process process = Runtime.getRuntime().exec("su");
                     DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
+                  //  DataOutputStream outputStream = null;
 
 
 
 
-                // BufferedReader br = new BufferedReader(reader)
+
+                if(currentConf.equalsIgnoreCase("20min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/20.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
 
 
-                // while(reader.ready()){
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
 
-
-
-
-               // Process processFPS = Runtime.getRuntime().exec("logcat | grep FPS > /sdcard/file.log");
-
-              //  InputStreamReader reader = new InputStreamReader(processFPS.getInputStream());
-
-/*
-                    Log.d(TAG,"fpsss inputStream command0");
-                    BufferedReader bufferedReader = new BufferedReader(reader);
-                    Log.d(TAG,"fpsss bufferedReader command0 " + reader.read());
-
-
-
-
-                    String line = "";
-                    while ((line = bufferedReader.readLine()) != null) {
-                        //Log.d(TAG,"fpsss inside while loop10: " + line);
-                        String fps = line.substring(line.lastIndexOf(':') + 1);
-                        Log.d(TAG,"fpsss inside while loop20: " + fps);
-                       // fps_log.add(Double.parseDouble(fps));
                     }
-*/
+                }
 
-                if (i == 1 || i == 0) {
-
-                        try {
-                            outputStream.writeBytes("sh /sdcard/1.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it is gonna get getevent1");
+                else if(currentConf.equalsIgnoreCase("20mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/20.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
 
 
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
 
-                        }
-                    } else if (i == 2 || i == 3) {
-                        try {
+                    }
+                }
 
-                            outputStream.writeBytes("sh /sdcard/2.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it should be good");
-
-
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
-
-                        }
-                    } else if (i == 4 || i == 5) {
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/4.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it should be good");
+                else if(currentConf.equalsIgnoreCase("20std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/20.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
 
 
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
 
-                        }
-                    } else if (i == 6 || i == 7) {
+                    }
+                }
 
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/6.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                          //
-
-                            Log.d("", "it should be good");
-
-
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
-
-                        }
-                    } else if (i == 8 || i == 9) {
-
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/8.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                          //  outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it should be good");
+                else if(currentConf.equalsIgnoreCase("02min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/02.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
 
 
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
 
-                        }
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("02mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/02.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("02std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/02.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("40min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/40.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("40mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/40.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("40std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/40.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("04min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/04.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("04mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/04.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("04std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/04.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("24min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/24.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("24mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/24.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("24std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/24.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("42min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/42.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("42mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/42.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("42std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/42.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("44min")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/44.bash\n");
+                        outputStream.writeBytes("sh /sdcard/min.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("44mid")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/44.bash\n");
+                        outputStream.writeBytes("sh /sdcard/mid.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
+                    }
+                }
+
+                else if(currentConf.equalsIgnoreCase("44std")){
+                    try {
+                        outputStream.writeBytes("sh /sdcard/44.bash\n");
+                        outputStream.writeBytes("sh /sdcard/std.bash\n");
+                        outputStream.writeBytes("exit\n");
+                        outputStream.flush();
+                        Log.d("", "it is gonna get getevent1");
+
+
+                    } catch (Exception e) {
+                        Log.i(TAG, "Error occured " + e);
+
                     }
 
-                    // and frequencies start!!
-                    if (j == 0) {
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/min.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it is min freq");
 
 
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
-
-                        }
-                    } else if (j == 1) {
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/mid.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it is mid freq");
-
-
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
-
-                        }
-                    } else if (j == 2) {
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/max.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it is max freq");
-
-
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
-
-                        }
-                    } else if (j == 3) {
-                        try {
-
-                            outputStream.writeBytes("sh /sdcard/std.bash\n");
-                            outputStream.writeBytes("exit\n");
-                            outputStream.flush();
-                         //   outputStream.writeBytes("exit\n");
-
-                            Log.d("", "it is std freq");
-
-
-                        } catch (Exception e) {
-                            Log.i(TAG, "Error occured " + e);
-
-                        }
                     } else {
-                        mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval);
+                     //   mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval*4);
                     }
 
                // fps.get_logs(1);
@@ -1019,17 +1524,30 @@ public class ServiceClass extends Service {
                 Log.d(TAG, "BufferedReader is closed212");
 
 
-*/              int nbThreads =  Thread.getAllStackTraces().keySet().size();
+*/
+                if(order>=20){
+                    order =0;
+                    Log.d(TAG,"Active CpuConfHandler End of first 21");
+                    Toast.makeText(ServiceClass.this, "**** ShellUSer granted ****", Toast.LENGTH_LONG).show();
 
-                Log.d(TAG, "Number of threads2: " + nbThreads);
+                    Uri notification = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+                    Ringtone r = RingtoneManager.getRingtone(getApplicationContext(), notification);
+                    r.play();
 
-                int nbRunning = 0;
-                for (Thread t : Thread.getAllStackTraces().keySet()) {
-                    if (t.getState()==Thread.State.RUNNABLE) nbRunning++;
+                    if(!standardGov) standardGov = true;
+                    else standardGov=false;
+
+                //    Toast.makeText(ServiceClass.this, "**** Please open the Chrome Application now!! ****", Toast.LENGTH_SHORT).show();
+
+               //     r.play();
+                    r.play();
+                    blackListConf.clear();
+                  //  MediaPlayer mp=MediaPlayer.create(ServiceClass.this, R.raw.amusic);
+                  //  mp.start();
+                   // Toast.makeText(ServiceClass.this, "#######Please open the Chrome Application now!!#######", Toast.LENGTH_SHORT).show();
 
                 }
-
-                Log.d(TAG, "Number of threads21: " + nbRunning);
+                else order++;
 
               //  fps.get_logs(0);
                 // fps.get_logs(1);
@@ -1038,7 +1556,7 @@ public class ServiceClass extends Service {
             //    fps.get_logs(1);
 
                 Log.d(TAG,"Before and after bef: " + System.currentTimeMillis());
-                mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval);
+           //    mCpuHandler.postDelayed(mCpuRefresh, cpu_conf_time_interval/2);
                 Log.d(TAG, "Before and after aft: " + System.currentTimeMillis());
 
                 }catch(Exception e){
@@ -1136,53 +1654,21 @@ public class ServiceClass extends Service {
 
 */
 
-    public void get_FPS_stats() {
 
-        try {
-            Double FPS_sum, frametime_sum, mean_FPS, mean_frametime, stdev_FPS, stdev_frametime, max_frametime, temp_FPS;
-            FPS_sum = frametime_sum = mean_FPS = mean_frametime = stdev_FPS = stdev_frametime = temp_FPS = 0.0;
-            max_frametime = -1.0;
-            int count = 0;
+    @TargetApi(21)
+    public long getCurrent(){
+        //BatteryManager nBatteryManager = Context.BATTERY_SERVICE;
+        BatteryManager mBatteryManager =
+                (BatteryManager)this.getSystemService(Context.BATTERY_SERVICE);
+        long energy =
+                mBatteryManager.getLongProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
 
-            Log.d(TAG, "fps log size is: " + fps_log.size());
-
-            for (int i = 0; i < fps_log.size(); i++) {
-                temp_FPS = fps_log.get(i);
-                FPS_sum += temp_FPS;
-                frametime_sum += 1 / temp_FPS;
-
-                if (1 / temp_FPS > max_frametime) {
-                    max_frametime = temp_FPS;
-                }
-
-                count++;
-            }
-
-
-            mean_FPS = FPS_sum / count;
-            mean_frametime = frametime_sum / count;
-
-          //  Log.d(TAG, "mean fps is: " + mean_FPS);
-
-            for (int j = 0; j < fps_log.size(); j++) {
-                temp_FPS = fps_log.get(j);
-
-                stdev_FPS += (temp_FPS - mean_FPS) * (temp_FPS - mean_FPS);
-                stdev_frametime += (1 / temp_FPS - mean_frametime) * (1 / temp_FPS - mean_frametime);
-            }
-
-            stdev_FPS = Math.sqrt(stdev_FPS / count);
-            stdev_frametime = Math.sqrt(stdev_frametime / count);
-
-          //  Log.d("FPSInfo: ", "" + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);
-
-            fps_log.clear();
-
-            //  get_logs();
-        } catch (Exception e) {
-
-        }
+        return energy;
     }
+
+
+
+
 
 
 

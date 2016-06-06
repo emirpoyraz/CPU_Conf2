@@ -18,10 +18,14 @@ public class Logger {
     final static public String TAG = "Logger";
     private static final String LOG_FILE_NAME = "CpuConfLogs.log";
     private static final String ARFF_FILE_NAME = "CpuConfLogs.arff";
+    private static final String FPS_CHECKING = "FPS.log";
+
     private static final String LOG_FILE_NAME_PHONE = "CpuConfLogs2";
     final static public String UPLOAD_FILE_NAME = "Upload.log";
     private static FileOutputStream mOutputStream = null;
     private static FileOutputStream mOutputStreamArff = null;
+    private static FileOutputStream mOutputStreamFps = null;
+
 
     final private static Object mLogLock = new Object();
 
@@ -54,6 +58,18 @@ public class Logger {
         }
     }
 
+    public static void createFpsFile(Context c) {
+        synchronized (mLogLock) {
+            try {
+                mOutputStreamFps = c.openFileOutput(FPS_CHECKING, Context.MODE_APPEND);
+            } catch (Exception e) {
+                Log.e(TAG, "Can't open file " + ARFF_FILE_NAME + ":" + e);
+
+            }
+        }
+    }
+
+
 /*
     public static void createLogFileToUpload(Context c) {
         synchronized (mLogLock) {
@@ -74,6 +90,16 @@ public class Logger {
         try {
             mOutputStream.write(s.getBytes());
             mOutputStream.write(NEWLINE);
+        } catch (IOException ioe) {
+            Log.e(TAG, "ERROR: Can't write string to file: " + ioe);
+        }
+    }
+
+
+    public void fpsLogEntry(String s){
+        try {
+            mOutputStreamFps.write(s.getBytes());
+            mOutputStreamFps.write(NEWLINE);
         } catch (IOException ioe) {
             Log.e(TAG, "ERROR: Can't write string to file: " + ioe);
         }
@@ -157,8 +183,9 @@ public class Logger {
 
 
 
+
     public static long logFileSize(Context c) {
-        File log_file = new File(c.getFilesDir(), LOG_FILE_NAME);
+        File log_file = new File(c.getFilesDir(), ARFF_FILE_NAME);
         if (!log_file.exists()) {
             return 0;
         }

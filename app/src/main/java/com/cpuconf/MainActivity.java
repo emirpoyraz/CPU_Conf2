@@ -1,5 +1,6 @@
 package com.cpuconf;
 
+import android.Manifest;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -22,7 +23,7 @@ public class MainActivity extends AppCompatActivity {
 
 
     private Button startService;
-    private Button stopService;
+    private Button stopService,startLogcat;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -35,7 +36,7 @@ public class MainActivity extends AppCompatActivity {
         Intent viewIntent = new Intent(this, Dissatisfaction.class);
         PendingIntent viewPendingIntent =
                 PendingIntent.getActivity(this, 0, viewIntent, 0);
-
+/*
         NotificationCompat.Builder notificationBuilder =
                 new NotificationCompat.Builder(this)
                         .setSmallIcon(R.drawable.normal)
@@ -49,6 +50,16 @@ public class MainActivity extends AppCompatActivity {
                 NotificationManagerCompat.from(this);
 
         notificationManager.notify(notificationId, notificationBuilder.build());
+*/
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WAKE_LOCK) != PackageManager.PERMISSION_GRANTED) {
+
+
+            ActivityCompat.requestPermissions(this,
+                    new String[]{Manifest.permission.WAKE_LOCK},
+                    1);
+
+        }
+
 
 
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -61,6 +72,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
+        DataHolder.getInstance().setInitiate(true);
+
+
+        startLogcat = (Button) this.findViewById(R.id.startLogcatId);
+        if (startLogcat != null) {
+            startLogcat.setOnClickListener(startLogcatListener);
+        }
 
 
         startService = (Button) this.findViewById(R.id.startServiceId);
@@ -127,9 +145,16 @@ public class MainActivity extends AppCompatActivity {
         }
 
 
-        private View.OnClickListener startServiceListener = new View.OnClickListener() {
+        private View.OnClickListener startLogcatListener = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+
+               Logger.createFpsFile(MainActivity.this);
+               ServiceClass.getLogger().fpsLogEntry("1");
+
+
+
+
                 try {
                     Process process = Runtime.getRuntime().exec("su");
                     DataOutputStream outputStream = new DataOutputStream(process.getOutputStream());
@@ -148,7 +173,8 @@ public class MainActivity extends AppCompatActivity {
                     Log.d(" ","Error Occured in ServiceClass: " + t);
                 }
 
-               // Intent intent = new Intent(MainActivity.this, ServiceClass.class);
+
+                // Intent intent = new Intent(MainActivity.this, ServiceClass.class);
                // MainActivity.this.startService(intent);
             }
         };
@@ -161,6 +187,15 @@ public class MainActivity extends AppCompatActivity {
 
             }
         };
+
+        private View.OnClickListener startServiceListener = new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            Intent intent = new Intent(MainActivity.this, ServiceClass.class);
+            MainActivity.this.startService(intent);
+
+            }
+    };
 
 
     }

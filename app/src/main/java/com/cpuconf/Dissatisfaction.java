@@ -47,10 +47,6 @@ public class Dissatisfaction extends Activity {
 
 
 
-        first = (Button) this.findViewById(R.id.firstLevel);
-        if (first != null) {
-            first.setOnClickListener(firstListener);
-        }
 
         second = (Button) this.findViewById(R.id.secondLevel);
         if (second != null) {
@@ -80,26 +76,16 @@ public class Dissatisfaction extends Activity {
 
 
 
-    private View.OnClickListener firstListener = new View.OnClickListener() { // normal
-        @Override
-        public void onClick(View v) {
-            try {
-                ServiceClass.getLogger().logEntry("User_satisfaction: " + 1);
-                Toast.makeText(Dissatisfaction.this, "Thank you! (1)", Toast.LENGTH_SHORT).show();
-                DataHolder.getInstance().setUserSatisfaction(1);
-            }catch (Exception e){}
 
-        }
-    };
 
 
     private View.OnClickListener secondListener = new View.OnClickListener() {
         @Override
         public void onClick(View v) {   // angry
             try {
-           ServiceClass.getLogger().logEntry("User_satisfaction: " + 2);
-           Toast.makeText(Dissatisfaction.this, "Thank you! (2)", Toast.LENGTH_SHORT).show();
-                DataHolder.getInstance().setUserSatisfaction(2);
+           ServiceClass.getLogger().logEntry("User_satisfaction: " + 1);
+           Toast.makeText(Dissatisfaction.this, "Thank you! (1)", Toast.LENGTH_SHORT).show();
+                DataHolder.getInstance().setUserSatisfaction(1);
 
             }catch (Exception e){}
 
@@ -111,9 +97,9 @@ public class Dissatisfaction extends Activity {
         @Override
         public void onClick(View v) {   // so angry
             try {
-                ServiceClass.getLogger().logEntry("User_satisfaction: " + 3);
-                Toast.makeText(Dissatisfaction.this, "Thank you! (3)", Toast.LENGTH_SHORT).show();
-                DataHolder.getInstance().setUserSatisfaction(3);
+                ServiceClass.getLogger().logEntry("User_satisfaction: " + 2);
+                Toast.makeText(Dissatisfaction.this, "Thank you! (2)", Toast.LENGTH_SHORT).show();
+                DataHolder.getInstance().setUserSatisfaction(2);
 
 
 

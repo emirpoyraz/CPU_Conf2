@@ -52,8 +52,8 @@ public class CPUtil {
 
 
 //TODO: Threads should be calculated!!!
-    public boolean readStats(int writeEn) {
-        FileReader fstream;
+    public double[] readStats() {
+        FileReader fstream=null;
 
         //   this.readCpuFreqScale();
 
@@ -63,42 +63,44 @@ public class CPUtil {
             if (DBG) {
                 Log.e("MonNet", "Could not read " + STAT_FILE);
             }
-            return false;
+           // return false;
         }
+        double[] cpuUtils = new double[9];
+
         BufferedReader in = new BufferedReader(fstream, 500);
         String line;
-        if (writeEn == 1) {
+
 
             try {
                 while ((line = in.readLine()) != null) {
                     String[] firstLine = line.split("\\s+");
                     if (firstLine[0].equalsIgnoreCase("cpu")) {
-                        updateStats(line.trim().split("[ ]+"), 8);
+                        cpuUtils[0] = updateStats(line.trim().split("[ ]+"), 8);
                         // return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu0")) {
-                        updateStats(line.trim().split("[ ]+"), 0);
+                        cpuUtils[1] = updateStats(line.trim().split("[ ]+"), 0);
                         //  return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu1")) {
-                        updateStats(line.trim().split("[ ]+"), 1);
+                        cpuUtils[2] =updateStats(line.trim().split("[ ]+"), 1);
                         // return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu2")) {
-                        updateStats(line.trim().split("[ ]+"), 2);
+                        cpuUtils[3] =updateStats(line.trim().split("[ ]+"), 2);
                         //return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu3")) {
-                        updateStats(line.trim().split("[ ]+"), 3);
+                        cpuUtils[4] =updateStats(line.trim().split("[ ]+"), 3);
                         //return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu4")) {
-                        updateStats(line.trim().split("[ ]+"), 4);
+                        cpuUtils[5] =updateStats(line.trim().split("[ ]+"), 4);
                         /// return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu5")) {
-                        updateStats(line.trim().split("[ ]+"), 5);
+                        cpuUtils[6] =updateStats(line.trim().split("[ ]+"), 5);
                         // return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu6")) {
-                        updateStats(line.trim().split("[ ]+"), 6);
+                        cpuUtils[7] =updateStats(line.trim().split("[ ]+"), 6);
                         //return true;
                     } else if (firstLine[0].equalsIgnoreCase("cpu7")) {
-                        updateStats(line.trim().split("[ ]+"), 7);
-                        return true;
+                        cpuUtils[8] =updateStats(line.trim().split("[ ]+"), 7);
+                        //return true;
                     }
 
 
@@ -108,12 +110,13 @@ public class CPUtil {
                     Log.e("MonNet", e.toString());
                 }
             }
-        }
-            return false;
+
+            //return false;
+            return cpuUtils;
         }
 
 
-    private void updateStats(String[] segs, int core) {
+    private double updateStats(String[] segs, int core) {
         // user = user + nice
         long user = Long.parseLong(segs[1]) + Long.parseLong(segs[2]);
         // system = system + intr + soft_irq
@@ -121,7 +124,7 @@ public class CPUtil {
                 Long.parseLong(segs[6]) + Long.parseLong(segs[7]);
         // total = user + system + idle + io_wait
         long total = user + system + Long.parseLong(segs[4]) + Long.parseLong(segs[5]);
-
+        double returnValue = 0.0;
 
         if (core == 8) {
             if (mTotal8 != 0 || total >= mTotal8) {
@@ -140,11 +143,13 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
+             //   ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+               // ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser8 = user;
@@ -156,6 +161,8 @@ public class CPUtil {
 
 
         else if (core == 0) {
+
+
             if (mTotal0 != 0 || total >= mTotal0) {
                 long duser = user - mUser0;
                 long dsystem = system - mSystem0;
@@ -172,11 +179,15 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
+            //    ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+            //    ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
+
+
             }
 
             mUser0 = user;
@@ -202,12 +213,14 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+            //    ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
 
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+              //  ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
+
             }
 
             mUser1 = user;
@@ -233,11 +246,13 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
+            //    ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+              //  ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser2 = user;
@@ -263,11 +278,14 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
+
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+             //   ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+             //   ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser3 = user;
@@ -293,11 +311,15 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
+
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+             //   ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+              //  ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser4 = user;
@@ -323,11 +345,15 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(dtotal == 0){
+
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
                     user_sys_perc = 0;
                 }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+           //     ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+               // ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser5 = user;
@@ -353,12 +379,14 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
-                }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
 
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
+                }
+
+              //  ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+              //  ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser6 = user;
@@ -384,12 +412,14 @@ public class CPUtil {
                 }
 
                 Log.d(TAG, "CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
-                if(user_sys_perc <= 0){
-                    user_sys_perc = -user_sys_perc;
-                }
-                ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
 
+                if(user_sys_perc <= 0 || user_sys_perc>100.0 ){
+                    user_sys_perc = 0.0;
+                }
+             //   ServiceClass.getLogger().arffEntryDouble(user_sys_perc);
+
+             //   ServiceClass.getLogger().logEntry("CPU" + core + " " + user_sys_perc + " " + user_perc + " " + sys_perc);
+                if(isNumeric(String.valueOf(user_sys_perc))) returnValue = user_sys_perc;
             }
 
             mUser7 = user;
@@ -399,7 +429,7 @@ public class CPUtil {
         }
 
 
-
+            return returnValue;
 
 
     }
@@ -409,6 +439,22 @@ public class CPUtil {
         user_sys_perc2Counter =0;
         user_sys_perc2 =0;
         putItToDataHolder =0;
+    }
+
+
+
+
+    private static boolean isNumeric(String str)
+    {
+        try
+        {
+            double d = Double.parseDouble(str);
+        }
+        catch(NumberFormatException nfe)
+        {
+            return false;
+        }
+        return true;
     }
 
     private Set<CpuMonListener> mListeners =

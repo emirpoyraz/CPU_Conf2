@@ -89,7 +89,7 @@ public class Applications {
 
 
     public Applications(){
-        getApps(0);
+        getApps();
 
     }
 
@@ -104,10 +104,12 @@ public class Applications {
 
 
 
-    public void getApps(int writeEn){
+    public long[] getApps(){
         int totalApps=0;
         long totalTimeInUser =0;
         long deltaTotalUser =0;
+
+        long[] returnValue = new long[25];
      //   String[] apps = new String[25];
         List<Process> processes = new ArrayList<>();
         try {
@@ -211,9 +213,10 @@ public class Applications {
 
                                 if(deltaUserTime<=0) deltaUserTime = 0;
 
-                                ServiceClass.getLogger().logEntry("App: " + appName + " " + deltaUserTime);
+                              //  ServiceClass.getLogger().logEntry("App: " + appName + " " + deltaUserTime);
 
-                                if(writeEn==1) ServiceClass.getLogger().arffEntryLong(deltaUserTime);
+                            //    ServiceClass.getLogger().arffEntryLong(deltaUserTime);
+                                returnValue[i] = deltaUserTime;
 
 
 
@@ -279,7 +282,7 @@ public class Applications {
           //  return false;
 
         }
-
+        return returnValue;
       //  return true;
     }
 

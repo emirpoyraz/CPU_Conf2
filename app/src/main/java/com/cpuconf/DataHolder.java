@@ -16,6 +16,12 @@ public class DataHolder {
        Log.i(TAG, "DataHolder reset: " + reset);}
 
 
+    public boolean getInitiate() {return reset;}
+    public void setInitiate(boolean reset) {this.reset = reset;
+        Log.i(TAG, "DataHolder initiate: " + reset);}
+
+
+
     public int getUserSatisfaction() {return user_rate;}
     public void setUserSatisfaction(int user_rate) {this.user_rate = user_rate;
         Log.i(TAG, "DataHolder user_rate: " + user_rate);}

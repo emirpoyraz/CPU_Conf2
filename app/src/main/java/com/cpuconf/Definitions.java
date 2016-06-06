@@ -12,4 +12,6 @@ public class Definitions {
 
     final static public String UPLOAD_FILE_NAME = "Upload.log";
 
+    final static public long TRAINING_SIZE_THRESHOLD =  732 * 1024; // it is approx 2000 logs and 2 hours // like 700KB
+
 }

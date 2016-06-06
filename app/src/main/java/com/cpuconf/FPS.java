@@ -70,7 +70,7 @@ public class FPS {
 
         }
     }
-    public void get_logs(int a) {
+    public void get_logs() {
 
         synchronized (mLogLock) {
             try {
@@ -107,9 +107,9 @@ public class FPS {
                     Log.d(TAG, "BufferedReader is now: " + line);
 
                     //7 line = bufferedReader.readLine();
-                    Log.d(TAG, " inside loop1: " + line);
+                 //   Log.d(TAG, " inside loop1: " + line);
                     String fps = line.substring(line.lastIndexOf(':') + 1);
-                    Log.d(TAG, " inside loop2: " + fps);
+                  //  Log.d(TAG, " inside loop2: " + fps);
                     fps_log.add(Double.parseDouble(fps));
                     //  counter++;
                 }
@@ -341,9 +341,9 @@ public class FPS {
     }
 
 */
-    public void get_FPS_stats(int writeEn) {
+    public double[] get_FPS_stats() {
 
-
+    double[] returnValues = new double[5];
 
 
 
@@ -444,15 +444,18 @@ public class FPS {
       //      if(stdev_frametime<=0 || stdev_frametime == null) stdev_frametime = stdev_frametime_old;
       //      if(max_frametime<=0 || max_frametime == null) max_frametime = max_frametime_old;
 
-            ServiceClass.getLogger().logEntry("framePerSecInfo: " + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);;
+         //   ServiceClass.getLogger().logEntry("framePerSecInfo: " + mean_FPS + " " + stdev_FPS + " " + mean_frametime + " " + stdev_frametime + " " + max_frametime);;
 
-        if (writeEn == 1) {
-            ServiceClass.getLogger().arffEntryDouble(mean_FPS);
-            ServiceClass.getLogger().arffEntryDouble(stdev_FPS);
-            ServiceClass.getLogger().arffEntryDouble(mean_frametime);
-            ServiceClass.getLogger().arffEntryDouble(stdev_frametime);
-            ServiceClass.getLogger().arffEntryDouble(max_frametime);
-        }
+
+        //    ServiceClass.getLogger().arffEntryDouble(mean_FPS);
+         //   ServiceClass.getLogger().arffEntryDouble(stdev_FPS);
+         //   ServiceClass.getLogger().arffEntryDouble(mean_frametime);
+          //  ServiceClass.getLogger().arffEntryDouble(stdev_frametime);
+          //  ServiceClass.getLogger().arffEntryDouble(max_frametime);
+
+        returnValues[0]= mean_FPS ; returnValues[1]=stdev_FPS; returnValues[2]=mean_frametime;
+        returnValues[3]=stdev_frametime;returnValues[4]=max_frametime;
+
 
 
 
@@ -470,6 +473,10 @@ public class FPS {
 
          //   get_logs(1);
 
+
+            return returnValues;
         }
+
+
     }
 

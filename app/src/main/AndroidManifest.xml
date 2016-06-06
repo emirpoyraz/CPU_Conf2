@@ -53,6 +53,8 @@
         </receiver>
 
 
+
+
         <service android:name=".ServiceClass"/>
     </application>
 
